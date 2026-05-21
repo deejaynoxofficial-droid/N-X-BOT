@@ -39,7 +39,10 @@ async function startBot() {
   })
 
 if (!sock.authState.creds.registered) {
-  const code = await sock.requestPairingCode("256745720308")
+  await delay(3000)
+
+  const code = await
+  sock.requestPairingCode("256745720308")
 
   console.log(`Pairing Code: ${code}`)
 }
@@ -58,8 +61,11 @@ if (!sock.authState.creds.registered) {
       if (reason === DisconnectReason.loggedOut) {
         console.log(chalk.red('Logged Out'))
       } else {
-        console.log(chalk.yellow('Reconnecting...'))
-        startBot()
+        console.log(chalk.yellow('Generating New Pairing Code...'))
+
+        setTimeout(() => {
+          startBot()
+       }, 10000)
       }
     }
 
