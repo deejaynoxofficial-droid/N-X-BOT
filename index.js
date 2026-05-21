@@ -110,7 +110,7 @@ async function startBot() {
     const pushname = msg.pushName || 'User'
 
     const menu = `
-╭━━〔 ${settings.NOXSPARROWBOT} 〕━━⬣
+╭━━〔 ${settings.botName} 〕━━⬣
 ┃👤 User: ${pushname}
 ┃⚡ Prefix: ${prefix}
 ┃📦 Mode: ${settings.mode}
