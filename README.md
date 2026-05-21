@@ -25,15 +25,15 @@ Advanced Multi Device WhatsApp Bot Built With:
 pkg update && pkg upgrade
 pkg install nodejs git -y
 git clone https://github.com/deejaynoxofficial-droid/N-X-BOT.git
-cd nox-star-bot
+cd nox-star-bot```
 
 # HOW TO CREATE FILES
 
 🤖Create index.js
 
-Bash
+```Bash
 
-nano index.js
+nano index.js```
 
 # Paste code.
 
@@ -43,14 +43,35 @@ Save:
 
 🤖Create settings.js
 
-Bash
+```Bash
 
-nano settings.js
+nano settings.js```
 
 🤖Install Modules
 
-Bash
+```Bash
+
+npm install```
+
+↓
+# ADDED FEATURES
+
+Modern WhatsApp Multi Device Bot.
+
+## Features
+
+- Pairing Code
+- Multi Device
+- Stylish Menu
+- Bot Image
+- Reply With Number
+- Modern UI
+- Group Commands
+- AI Commands
+- Tools Commands
+
+## Start
 
 npm install
 
-↓
+node index.js
