@@ -12,18 +12,10 @@ const pino = require('pino')
 const fs = require('fs')
 const path = require('path')
 const qrcode = require('qrcode-terminal')
-const readline = require('readline')
 const chalk = require('chalk').default
 const figlet = require('figlet')
 const { Boom } = require('@hapi/boom')
 const settings = require('./settings')
-
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-})
-
-const question = (text) => new Promise((resolve) => rl.question(text, resolve))
 
 console.log(
   chalk.cyan(
@@ -41,11 +33,17 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     logger: pino({ level: 'silent' }),
-    printQRInTerminal: true,
+    printQRInTerminal: false,
     auth: state,
     browser: Browsers.ubuntu('Chrome')
   })
 
+if (!sock.authState.creds.registered) {
+  const code = await sock.requestPairingCode("256745720308")
+
+  console.log(`Pairing Code: ${code}`)
+}
+  
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update
 
