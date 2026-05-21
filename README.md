@@ -1,4 +1,3 @@
-# N-X-BOT
 # NOX SPARROW WHATSAPP BOT
 
 Advanced Multi Device WhatsApp Bot Built With:
@@ -20,10 +19,6 @@ Advanced Multi Device WhatsApp Bot Built With:
 - Profile System
 - Owner Commands
 
-# INSTALLATION
-
-# NOX STAR WHATSAPP BOT
-
 ## INSTALLATION
 
 ```bash
@@ -32,27 +27,27 @@ pkg install nodejs git -y
 git clone https://github.com/deejaynoxofficial-droid/N-X-BOT.git
 cd nox-star-bot
 
-HOW TO CREATE FILES
+# HOW TO CREATE FILES
 
-Create index.js
+🤖Create index.js
 
 Bash
 
 nano index.js
 
-Paste code.
+# Paste code.
 
 Save:
 
-CTRL + X Then Y Then ENTER
+#CTRL + X Then Y Then ENTER
 
-Create settings.js
+🤖Create settings.js
 
 Bash
 
 nano settings.js
 
-Install Modules
+🤖Install Modules
 
 Bash
 
