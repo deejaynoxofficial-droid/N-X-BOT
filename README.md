@@ -29,25 +29,25 @@ cd nox-star-bot```
 
 # HOW TO CREATE FILES
 
-🤖Create index.js
+##🤖Create index.js
 
 ```Bash
 
 nano index.js```
 
-# Paste code.
+##Paste code.
 
 Save:
 
 #CTRL + X Then Y Then ENTER
 
-🤖Create settings.js
+##🤖Create settings.js
 
 ```Bash
 
 nano settings.js```
 
-🤖Install Modules
+##🤖Install Modules
 
 ```Bash
 
