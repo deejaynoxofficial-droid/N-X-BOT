@@ -1,11 +1,3 @@
-/**
- * ==========================================
- *   NØX_STAR WHATSAPP BOT
- *   PAIRING CODE VERSION
- *   FIXED & STABLE
- * ==========================================
- */
-
 const {
   default: makeWASocket,
   useMultiFileAuthState,
