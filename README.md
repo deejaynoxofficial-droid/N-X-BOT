@@ -27,9 +27,9 @@ pkg install nodejs git -y
 git clone https://github.com/deejaynoxofficial-droid/N-X-BOT.git
 cd nox-star-bot```
 
-# HOW TO CREATE FILES
+HOW TO CREATE FILES
 
-##🤖Create index.js
+🤖Create index.js
 
 ```Bash
 
