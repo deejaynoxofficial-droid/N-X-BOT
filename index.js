@@ -3,7 +3,6 @@ const {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
-  makeInMemoryStore,
   jidDecode,
   delay,
   Browsers
@@ -33,10 +32,6 @@ console.log(
     })
   )
 )
-
-const store = makeInMemoryStore({
-  logger: pino().child({ level: 'silent', stream: 'store' })
-})
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState(settings.sessionName)
