@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mr Nox Star Bots</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:Arial,sans-serif;
+}
+
+body{
+background:#050505;
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+padding:20px;
+overflow:hidden;
+}
+
+body::before{
+content:'';
+position:fixed;
+width:500px;
+height:500px;
+background:rgba(255,170,0,0.08);
+filter:blur(140px);
+border-radius:50%;
+top:-150px;
+z-index:-1;
+}
+
+.container{
+width:100%;
+max-width:430px;
+height:95vh;
+overflow-y:auto;
+background:#0b0b0b;
+border-radius:40px;
+padding:30px 24px;
+border:1px solid rgba(255,179,0,0.12);
+box-shadow:
+0 0 40px rgba(255,179,0,0.12),
+0 0 80px rgba(255,179,0,0.04);
+scroll-behavior:smooth;
+}
+
+.container::-webkit-scrollbar{
+width:5px;
+}
+
+.container::-webkit-scrollbar-thumb{
+background:#ffb300;
+border-radius:20px;
+}
+
+.topBar{
+display:flex;
+justify-content:flex-end;
+margin-bottom:15px;
+}
+
+.menuBtn{
+width:55px;
+height:55px;
+background:#161616;
+border:1px solid rgba(255,179,0,0.15);
+border-radius:18px;
+display:flex;
+justify-content:center;
+align-items:center;
+font-size:28px;
+color:#ffb300;
+cursor:pointer;
+}
+
+.logo{
+width:95px;
+height:95px;
+margin:auto;
+margin-bottom:20px;
+border-radius:50%;
+overflow:hidden;
+border:3px solid rgba(255,179,0,0.25);
+}
+
+.logo img{
+width:100%;
+height:100%;
+object-fit:cover;
+}
+
+h1{
+text-align:center;
+font-size:48px;
+font-weight:bold;
+color:#ffb300;
+margin-bottom:10px;
+}
+
+.sub{
+text-align:center;
+font-size:18px;
+color:#aaa;
+margin-bottom:35px;
+}
+
+.card{
+background:#131313;
+padding:28px;
+border-radius:35px;
+}
+
+.card h2{
+color:#ffb300;
+font-size:24px;
+margin-bottom:18px;
+}
+
+.card p{
+color:#b5b5b5;
+font-size:15px;
+line-height:1.7;
+margin-bottom:25px;
+}
+
+label{
+display:block;
+font-size:16px;
+margin-bottom:12px;
+color:white;
+font-weight:bold;
+}
+
+.inputBox{
+margin-bottom:25px;
+}
+
+input{
+width:100%;
+padding:18px;
+background:#242424;
+border:none;
+border-radius:20px;
+color:white;
+font-size:18px;
+outline:none;
+margin-bottom:15px;
+}
+
+button{
+width:100%;
+padding:18px;
+border:none;
+border-radius:22px;
+background:#ffb300;
+color:black;
+font-size:22px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.result{
+margin-top:28px;
+background:#090909;
+padding:28px;
+border-radius:28px;
+text-align:center;
+min-height:120px;
+display:flex;
+justify-content:center;
+align-items:center;
+flex-direction:column;
+}
+
+.code{
+font-size:50px;
+font-weight:bold;
+letter-spacing:8px;
+color:#00ff9d;
+margin:18px 0;
+}
+
+.success{
+font-size:20px;
+color:white;
+}
+
+.copyText{
+font-size:16px;
+color:#00ff9d;
+margin-bottom:20px;
+}
+
+.guide{
+width:100%;
+background:#141414;
+padding:22px;
+border-radius:22px;
+text-align:left;
+margin-top:12px;
+line-height:2;
+color:#d1d1d1;
+font-size:15px;
+}
+
+.guideTitle{
+font-size:18px;
+font-weight:bold;
+margin-bottom:12px;
+color:white;
+}
+
+.footer{
+margin-top:28px;
+text-align:center;
+font-size:14px;
+color:#777;
+}
+
+.footer span{
+color:#ffb300;
+font-weight:bold;
+}
+
+.loading{
+color:#ffcc00;
+font-size:18px;
+}
+
+.sideMenu{
+position:fixed;
+top:0;
+right:-280px;
+width:260px;
+height:100%;
+background:#0f0f0f;
+z-index:999;
+padding:25px;
+transition:0.4s;
+overflow-y:auto;
+}
+
+.sideMenu.active{
+right:0;
+}
+
+.sideHeader{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:30px;
+}
+
+.sideHeader h2{
+color:#ffb300;
+font-size:24px;
+}
+
+.closeBtn{
+font-size:25px;
+color:white;
+cursor:pointer;
+}
+
+.menuItem{
+padding:18px;
+background:#171717;
+margin-bottom:15px;
+border-radius:18px;
+color:white;
+cursor:pointer;
+font-size:17px;
+}
+
+.loginPopup,
+.settingsPopup{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.85);
+display:none;
+justify-content:center;
+align-items:center;
+z-index:1000;
+padding:20px;
+}
+
+.loginBox,
+.settingsContent{
+width:100%;
+max-width:400px;
+background:#101010;
+padding:30px;
+border-radius:30px;
+}
+
+.settingsContent{
+height:90vh;
+overflow-y:auto;
+}
+
+.settingsTop{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:25px;
+}
+
+.settingsTop h2{
+color:#ffb300;
+font-size:26px;
+}
+
+.closeSettings{
+font-size:28px;
+color:white;
+cursor:pointer;
+}
+
+.settingCard{
+background:#171717;
+padding:22px;
+border-radius:25px;
+margin-bottom:20px;
+}
+
+.settingRow{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:16px 0;
+border-bottom:1px solid rgba(255,255,255,0.05);
+color:white;
+}
+
+.settingRow:last-child{
+border-bottom:none;
+}
+
+.switch{
+position:relative;
+display:inline-block;
+width:60px;
+height:32px;
+}
+
+.switch input{
+opacity:0;
+width:0;
+height:0;
+}
+
+.slider{
+position:absolute;
+cursor:pointer;
+top:0;
+left:0;
+right:0;
+bottom:0;
+background:#444;
+transition:0.4s;
+border-radius:40px;
+}
+
+.slider:before{
+position:absolute;
+content:"";
+height:24px;
+width:24px;
+left:4px;
+bottom:4px;
+background:white;
+transition:0.4s;
+border-radius:50%;
+}
+
+.switch input:checked + .slider{
+background:#ffb300;
+}
+
+.switch input:checked + .slider:before{
+transform:translateX(28px);
+}
+
+.editTitle{
+color:#ffb300;
+margin-bottom:20px;
+font-size:22px;
+}
+
+.saveBtn{
+margin-top:10px;
+}
+
+.loginError{
+margin-top:15px;
+color:#ff4444;
+text-align:center;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="topBar">
+<div class="menuBtn" id="menuBtn">☰</div>
+</div>
+
+<div class="logo">
+<img src="111.png">
+</div>
+
+<h1>Mr Nox Star Bots</h1>
+
+<div class="sub">
+Premium Bot Dashboard
+</div>
+
+<div class="card">
+
+<h2>Premium Setup</h2>
+
+<p>
+Enter your WhatsApp number to generate your secure pairing code instantly.
+</p>
+
+<label>WhatsApp Number</label>
+
+<div class="inputBox">
+<input
+type="text"
+id="phone"
+placeholder="+256700000000"
+>
+</div>
+
+<button id="generateBtn">
+Generate Pair Code
+</button>
+
+<div class="result" id="pairCode">
+Your pairing code will appear here
+</div>
+
+</div>
+
+<div class="footer">
+Power By <span>Dev Nox Star</span>
+</div>
+
+</div>
+
+<!-- SIDE MENU -->
+
+<div class="sideMenu" id="sideMenu">
+
+<div class="sideHeader">
+
+<h2>Menu</h2>
+
+<div class="closeBtn" id="closeBtn">
+✕
+</div>
+
+</div>
+
+<div class="menuItem" id="openSettings">
+⚙️ Settings
+</div>
+
+<div class="menuItem">
+📊 Dashboard
+</div>
+
+</div>
+
+<!-- ACCESS CONTROL -->
+
+<div class="loginPopup" id="loginPopup">
+
+<div class="loginBox">
+
+<div style="
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:20px;
+">
+
+<h2 style="
+color:#ffb300;
+font-size:30px;
+margin:0;
+">
+ACCESS CONTROL
+</h2>
+
+<div
+id="closeLogin"
+style="
+font-size:28px;
+color:white;
+cursor:pointer;
+">
+✕
+</div>
+
+</div>
+
+<p style="
+text-align:center;
+color:#aaa;
+margin-bottom:25px;
+">
+Verify identity to access settings
+</p>
+
+<input
+type="text"
+id="username"
+placeholder="Admin Username"
+>
+
+<input
+type="password"
+id="password"
+placeholder="Access Password"
+>
+
+<button id="loginBtn">
+CONFIRM IDENTITY
+</button>
+
+<div class="loginError" id="loginError"></div>
+
+</div>
+
+</div>
+
+<!-- SETTINGS -->
+
+<div class="settingsPopup" id="settingsPopup">
+
+<div class="settingsContent">
+
+<div class="settingsTop">
+
+<h2>
+⚙️ BOT CONFIGURATION
+</h2>
+
+<div class="closeSettings" id="closeSettings">
+✕
+</div>
+
+</div>
+
+<div class="settingCard">
+
+<div class="settingRow">
+<div>🛡️ Anti Delete</div>
+<label class="switch">
+<input type="checkbox" checked>
+<span class="slider"></span>
+</label>
+</div>
+
+<div class="settingRow">
+<div>🚀 Startup Message</div>
+<label class="switch">
+<input type="checkbox" checked>
+<span class="slider"></span>
+</label>
+</div>
+
+<div class="settingRow">
+<div>📖 Auto Read</div>
+<label class="switch">
+<input type="checkbox" checked>
+<span class="slider"></span>
+</label>
+</div>
+
+<div class="settingRow">
+<div>👁️ Status Seen</div>
+<label class="switch">
+<input type="checkbox" checked>
+<span class="slider"></span>
+</label>
+</div>
+
+<div class="settingRow">
+<div>❤️ Status React</div>
+<label class="switch">
+<input type="checkbox">
+<span class="slider"></span>
+</label>
+</div>
+
+<div class="settingRow">
+<div>📵 Call Block</div>
+<label class="switch">
+<input type="checkbox">
+<span class="slider"></span>
+</label>
+</div>
+
+<div class="settingRow">
+<div>🟢 Always Online</div>
+<label class="switch">
+<input type="checkbox" checked>
+<span class="slider"></span>
+</label>
+</div>
+
+<div class="settingRow">
+<div>⌨️ Always Typing</div>
+<label class="switch">
+<input type="checkbox" checked>
+<span class="slider"></span>
+</label>
+</div>
+
+<div class="settingRow">
+<div>🎙️ Always Record</div>
+<label class="switch">
+<input type="checkbox" checked>
+<span class="slider"></span>
+</label>
+</div>
+
+</div>
+
+<div class="settingCard">
+
+<h3 class="editTitle">
+🎨 Customize Bot
+</h3>
+
+<input
+type="text"
+class="editInput"
+placeholder="Bot Name"
+value="MR NOX STAR BOT"
+>
+
+<input
+type="text"
+class="editInput"
+placeholder="Owner Name"
+value="NOX STAR"
+>
+
+<input
+type="text"
+class="editInput"
+placeholder="Bot Prefix"
+value="[ * ]"
+>
+
+<input
+type="text"
+class="editInput"
+placeholder="Movie Brand"
+value="NOX STAR"
+>
+
+<button class="saveBtn">
+SAVE SETTINGS
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+/* ACCESS CONTROL */
+
+let savedUsername = "";
+let savedPassword = "";
+
+/* GENERATE PAIR CODE */
+
+const generateBtn =
+document.getElementById("generateBtn");
+
+const phoneInput =
+document.getElementById("phone");
+
+const resultBox =
+document.getElementById("pairCode");
+
+generateBtn.addEventListener("click",()=>{
+
+let phone =
+phoneInput.value.trim();
+
+phone =
+phone.replace(/\s+/g,'');
+
+if(!phone){
+
+resultBox.innerHTML = `
+<div style="color:#ff4444;font-size:18px;">
+⚠️ Please enter your WhatsApp number!
+</div>
+`;
+
+return;
+
+}
+
+if(!phone.startsWith("+") || phone.length < 10){
+
+resultBox.innerHTML = `
+<div style="color:#ff4444;font-size:18px;">
+⚠️ Enter a valid WhatsApp number!
+</div>
+`;
+
+return;
+
+}
+
+/* CREATE LOGIN DETAILS */
+
+savedUsername =
+phone.replace("+","");
+
+savedPassword =
+Math.random()
+.toString(36)
+.substring(2,8)
+.toUpperCase();
+
+generateBtn.disabled = true;
+
+generateBtn.innerHTML =
+"Generating...";
+
+resultBox.innerHTML = `
+<div class="loading">
+⏳ Generating secure pair code...
+</div>
+`;
+
+setTimeout(()=>{
+
+const pairCode =
+Math.random()
+.toString(36)
+.substring(2,8)
+.toUpperCase();
+
+resultBox.innerHTML = `
+
+<div class="success">
+✅ Pair Code Generated
+</div>
+
+<div class="code">
+${pairCode}
+</div>
+
+<div class="copyText">
+Copy this code and paste it in WhatsApp
+</div>
+
+<div class="guide">
+
+<div class="guideTitle">
+🔐 ACCESS CONTROL DETAILS
+</div>
+
+Number:
+<b>${savedUsername}</b><br>
+
+Password:
+<b>${savedPassword}</b><br><br>
+
+<div class="guideTitle">
+📲 How To Link Device
+</div>
+
+1. Open WhatsApp<br>
+2. Tap the 3 dots ⋮<br>
+3. Select Linked Devices<br>
+4. Tap Link a Device<br>
+5. Choose Link with phone number instead<br>
+6. Paste the generated code<br>
+7. Wait for successful connection ✅
+
+</div>
+
+`;
+
+generateBtn.disabled = false;
+
+generateBtn.innerHTML =
+"Generate Pair Code";
+
+},2500);
+
+});
+
+/* MENU */
+
+const menuBtn =
+document.getElementById("menuBtn");
+
+const sideMenu =
+document.getElementById("sideMenu");
+
+const closeBtn =
+document.getElementById("closeBtn");
+
+menuBtn.onclick = ()=>{
+
+sideMenu.classList.add("active");
+
+};
+
+closeBtn.onclick = ()=>{
+
+sideMenu.classList.remove("active");
+
+};
+
+/* POPUPS */
+
+const openSettings =
+document.getElementById("openSettings");
+
+const loginPopup =
+document.getElementById("loginPopup");
+
+const settingsPopup =
+document.getElementById("settingsPopup");
+
+const closeSettings =
+document.getElementById("closeSettings");
+
+const closeLogin =
+document.getElementById("closeLogin");
+
+openSettings.onclick = ()=>{
+
+loginPopup.style.display = "flex";
+
+};
+
+closeLogin.onclick = ()=>{
+
+loginPopup.style.display = "none";
+
+};
+
+closeSettings.onclick = ()=>{
+
+settingsPopup.style.display = "none";
+
+};
+
+/* LOGIN */
+
+const loginBtn =
+document.getElementById("loginBtn");
+
+const loginError =
+document.getElementById("loginError");
+
+loginBtn.onclick = ()=>{
+
+const username =
+document.getElementById("username")
+.value.trim();
+
+const password =
+document.getElementById("password")
+.value.trim();
+
+if(savedUsername === "" || savedPassword === ""){
+
+loginError.innerHTML =
+"❌ Generate pair code first";
+
+return;
+
+}
+
+if(
+username === savedUsername
+&&
+password === savedPassword
+){
+
+loginPopup.style.display = "none";
+
+settingsPopup.style.display = "flex";
+
+loginError.innerHTML = "";
+
+}else{
+
+loginError.innerHTML =
+"❌ Invalid Login Details";
+
+}
+
+};
+
+/* SAVE SETTINGS */
+
+const saveBtn =
+document.querySelector(".saveBtn");
+
+saveBtn.onclick = ()=>{
+
+const switches =
+document.querySelectorAll(
+'.switch input'
+);
+
+const settings = {
+
+antiDelete:switches[0].checked,
+startupMessage:switches[1].checked,
+autoRead:switches[2].checked,
+statusSeen:switches[3].checked,
+statusReact:switches[4].checked,
+callBlock:switches[5].checked,
+alwaysOnline:switches[6].checked,
+alwaysTyping:switches[7].checked,
+alwaysRecord:switches[8].checked,
+
+botName:
+document.querySelectorAll(".editInput")[0].value,
+
+ownerName:
+document.querySelectorAll(".editInput")[1].value,
+
+botPrefix:
+document.querySelectorAll(".editInput")[2].value,
+
+movieBrand:
+document.querySelectorAll(".editInput")[3].value
+
+};
+
+localStorage.setItem(
+"botSettings",
+JSON.stringify(settings)
+);
+
+saveBtn.innerHTML =
+"✅ SETTINGS SAVED";
+
+setTimeout(()=>{
+
+saveBtn.innerHTML =
+"SAVE SETTINGS";
+
+},2000);
+
+};
+
+/* LOAD SETTINGS */
+
+window.onload = ()=>{
+
+const saved =
+localStorage.getItem("botSettings");
+
+if(saved){
+
+const settings =
+JSON.parse(saved);
+
+const switches =
+document.querySelectorAll(
+'.switch input'
+);
+
+switches[0].checked =
+settings.antiDelete;
+
+switches[1].checked =
+settings.startupMessage;
+
+switches[2].checked =
+settings.autoRead;
+
+switches[3].checked =
+settings.statusSeen;
+
+switches[4].checked =
+settings.statusReact;
+
+switches[5].checked =
+settings.callBlock;
+
+switches[6].checked =
+settings.alwaysOnline;
+
+switches[7].checked =
+settings.alwaysTyping;
+
+switches[8].checked =
+settings.alwaysRecord;
+
+document.querySelectorAll(".editInput")[0].value =
+settings.botName;
+
+document.querySelectorAll(".editInput")[1].value =
+settings.ownerName;
+
+document.querySelectorAll(".editInput")[2].value =
+settings.botPrefix;
+
+document.querySelectorAll(".editInput")[3].value =
+settings.movieBrand;
+
+}
+
+};
+
+</script>
+
+</body>
+</html>

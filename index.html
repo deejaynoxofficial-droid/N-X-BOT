@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mr Nox StAr Bots - Admin Panel</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:'Poppins',sans-serif;
+}
+
+body{
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+background:#050816;
+overflow:hidden;
+position:relative;
+padding:20px;
+}
+
+body::before{
+content:'';
+position:absolute;
+width:450px;
+height:450px;
+background:#00d9ff;
+border-radius:50%;
+filter:blur(140px);
+top:-120px;
+left:-120px;
+opacity:0.35;
+}
+
+body::after{
+content:'';
+position:absolute;
+width:450px;
+height:450px;
+background:#8b5cf6;
+border-radius:50%;
+filter:blur(140px);
+bottom:-120px;
+right:-120px;
+opacity:0.35;
+}
+
+.login-dialog{
+width:390px;
+padding:40px 35px;
+border-radius:28px;
+background:rgba(255,255,255,0.08);
+backdrop-filter:blur(18px);
+border:1px solid rgba(255,255,255,0.12);
+box-shadow:
+0 10px 40px rgba(0,0,0,0.45),
+inset 0 0 15px rgba(255,255,255,0.05);
+position:relative;
+z-index:10;
+}
+
+.logo{
+width:90px;
+height:90px;
+margin:auto;
+margin-bottom:20px;
+border-radius:50%;
+overflow:hidden;
+box-shadow:0 0 30px rgba(0,217,255,0.4);
+border:3px solid rgba(255,255,255,0.15);
+}
+
+.logo img{
+width:100%;
+height:100%;
+object-fit:cover;
+border-radius:50%;
+}
+
+.title{
+text-align:center;
+color:#fff;
+font-size:30px;
+font-weight:700;
+margin-bottom:5px;
+}
+
+.subtitle{
+text-align:center;
+color:#cbd5e1;
+font-size:14px;
+margin-bottom:30px;
+}
+
+.dialog-title{
+text-align:center;
+color:#00d9ff;
+font-size:18px;
+font-weight:600;
+margin-bottom:25px;
+letter-spacing:1px;
+}
+
+.input-group{
+margin-bottom:22px;
+}
+
+.input-group label{
+color:#fff;
+font-size:14px;
+margin-bottom:8px;
+display:block;
+font-weight:500;
+}
+
+.input-group input{
+width:100%;
+padding:15px 18px;
+border:none;
+outline:none;
+border-radius:16px;
+background:rgba(255,255,255,0.08);
+border:1px solid rgba(255,255,255,0.08);
+color:#fff;
+font-size:15px;
+transition:0.3s;
+}
+
+.input-group input::placeholder{
+color:#94a3b8;
+}
+
+.input-group input:focus{
+border-color:#00d9ff;
+box-shadow:0 0 18px rgba(0,217,255,0.35);
+background:rgba(255,255,255,0.12);
+}
+
+.login-btn{
+width:100%;
+padding:15px;
+border:none;
+border-radius:18px;
+background:linear-gradient(135deg,#00d9ff,#8b5cf6);
+color:#fff;
+font-size:16px;
+font-weight:600;
+cursor:pointer;
+transition:0.3s ease;
+margin-top:10px;
+}
+
+.login-btn:hover{
+transform:translateY(-2px);
+box-shadow:0 10px 25px rgba(0,217,255,0.35);
+}
+
+.login-btn:disabled{
+opacity:0.7;
+cursor:not-allowed;
+}
+
+.message-box{
+margin-top:20px;
+text-align:center;
+font-size:15px;
+font-weight:600;
+min-height:20px;
+}
+
+.dialog-footer{
+text-align:center;
+margin-top:25px;
+color:#94a3b8;
+font-size:13px;
+}
+
+.dialog-footer span{
+color:#00d9ff;
+font-weight:500;
+}
+
+@media(max-width:450px){
+
+.login-dialog{
+width:100%;
+padding:35px 25px;
+}
+
+.title{
+font-size:24px;
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="login-dialog">
+
+<div class="logo">
+<img src="111.png" alt="Mr Nox Star Bots Logo">
+</div>
+
+<div class="title">
+Mr Nox StAr Bots
+</div>
+
+<div class="subtitle">
+Modern Secure Dashboard
+</div>
+
+<div class="dialog-title">
+CREATE ACCOUNT
+</div>
+
+<form id="loginForm">
+
+<div class="input-group">
+
+<label>
+Username
+</label>
+
+<input
+type="text"
+id="username"
+placeholder="@Example"
+autocomplete="off"
+required
+>
+
+</div>
+
+<div class="input-group">
+
+<label>
+Password
+</label>
+
+<input
+type="password"
+id="password"
+placeholder="Enter your password"
+required
+>
+
+</div>
+
+<button
+type="submit"
+class="login-btn"
+id="loginBtn"
+>
+SUBMIT
+</button>
+
+<div
+class="message-box"
+id="messageBox"
+></div>
+
+</form>
+
+<div class="dialog-footer">
+<span>@Mr Nox Star Bots</span>
+</div>
+
+</div>
+
+<script>
+
+document.addEventListener(
+"DOMContentLoaded",
+()=>{
+
+const form =
+document.getElementById(
+"loginForm"
+);
+
+const usernameInput =
+document.getElementById(
+"username"
+);
+
+const passwordInput =
+document.getElementById(
+"password"
+);
+
+const loginBtn =
+document.getElementById(
+"loginBtn"
+);
+
+const messageBox =
+document.getElementById(
+"messageBox"
+);
+
+/* SUBMIT FORM */
+
+form.addEventListener(
+"submit",
+(e)=>{
+
+e.preventDefault();
+
+const username =
+usernameInput.value.trim();
+
+const password =
+passwordInput.value.trim();
+
+/* BUTTON LOADING */
+
+loginBtn.innerHTML =
+"Checking...";
+
+loginBtn.disabled =
+true;
+
+/* CLEAR MESSAGE */
+
+messageBox.innerHTML = "";
+
+setTimeout(()=>{
+
+/* EMPTY VALIDATION */
+
+if(
+username === ""
+||
+password === ""
+){
+
+showMessage(
+"Please fill in all required fields.",
+"#ff4d6d"
+);
+
+resetButton();
+
+return;
+
+}
+
+/* USERNAME VALIDATION */
+
+if(
+username.length < 4
+){
+
+showMessage(
+"Username must contain at least 4 characters.",
+"#ffb703"
+);
+
+resetButton();
+
+return;
+
+}
+
+/* PASSWORD VALIDATION */
+
+if(
+password.length < 4
+){
+
+showMessage(
+"Password must contain at least 4 characters.",
+"#ffb703"
+);
+
+resetButton();
+
+return;
+
+}
+
+/* SAVE LOGIN */
+
+localStorage.setItem(
+"adminUsername",
+username
+);
+
+localStorage.setItem(
+"adminPassword",
+password
+);
+
+/* SUCCESS */
+
+showMessage(
+"Account Created Successfully ✓",
+"#00ffae"
+);
+
+/* BUTTON SUCCESS */
+
+loginBtn.innerHTML =
+"SUCCESS ✓";
+
+/* REDIRECT */
+
+setTimeout(()=>{
+
+window.location.href =
+"dashboard.html";
+
+},1500);
+
+},1200);
+
+});
+
+/* SHOW MESSAGE */
+
+function showMessage(
+text,
+color
+){
+
+messageBox.innerHTML =
+text;
+
+messageBox.style.color =
+color;
+
+}
+
+/* RESET BUTTON */
+
+function resetButton(){
+
+loginBtn.innerHTML =
+"SUBMIT";
+
+loginBtn.disabled =
+false;
+
+}
+
+});
+
+</script>
+
+</body>
+</html>
