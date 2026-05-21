@@ -41,18 +41,10 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     logger: pino({ level: 'silent' }),
-    printQRInTerminal: false,
+    printQRInTerminal: true,
     auth: state,
     browser: Browsers.ubuntu('Chrome')
   })
-
-  if (!sock.authState.creds.registered) {
-    const phoneNumber = await question(chalk.green('\nEnter WhatsApp Number Example 2567xxxxxxx:\n'))
-
-    const code = await sock.requestPairingCode(phoneNumber)
-
-    console.log(chalk.yellow(`\nYour Pairing Code: ${code}\n`))
-  }
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update
