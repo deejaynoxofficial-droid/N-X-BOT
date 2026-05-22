@@ -4,7 +4,7 @@
 
 <div align="center">
 
-<img src="assests/bot.jpg" width="220" style="border-radius:20px;" alt="Nox Sparrow Bot Logo"/>
+<img src="assests/bot.jpg" width="220" style="border-radius:20px;"/> alt="Nox Sparrow Bot Logo"/>
 
 # 🐦‍⬛ NOX SPARROW BOT
 
