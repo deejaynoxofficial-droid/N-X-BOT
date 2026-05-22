@@ -23,11 +23,11 @@
 ​A secondary WhatsApp number for deployment
 ​1. Installation
 ​Clone the repository and install the required dependencies:<br>
-```git clone https://github.com/deejaynoxofficial-droid/N-X-BOT
-cd nox-sparrow-bot
-npm install```
+git clone https://github.com/deejaynoxofficial-droid/N-X-BOT<br>
+```cd nox-sparrow-bot```
+```npm install```
 
-2. Configuration
+2. *Configuration*
 ​Create a .env file in the root directory and add your environment variables:
 
 SESSION_ID=your_session_id_here
@@ -40,7 +40,7 @@ OWNER_NUMBER=256745720308
 ```npm start```
 
 ​Scan the QR code displayed in your terminal using WhatsApp linked devices to connect.
-​🛠️ Tech Stack
+​🛠️ _Tech Stack_
 ​Language: JavaScript / Node.js
 ​API Framework: Baileys / WhatsApp Web.js
 ​Database: MongoDB / Quick.db (Optional for data retention)<br>
