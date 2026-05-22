@@ -1,8 +1,8 @@
 <!-- =========================
-     NOX SPARROW BOT README
+     NOXSPARROWBOT README
 ========================= -->
 
-# 🐦‍⬛#NOX SPARROW BOT
+# 🐦‍⬛*NOX SPARROW BOT*
 
 <div align="center">
 
