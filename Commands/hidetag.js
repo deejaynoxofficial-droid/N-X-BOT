@@ -1,15 +1,18 @@
 module.exports = {
-name: 'hidetag',
-async execute(sock,m,args){
-const from = m.key.remoteJid
+name: "hidetag",
 
-if(!from.endsWith('@g.us')) return
+async execute(sock, m, args, participants) {
 
-const metadata = await sock.groupMetadata(from)
-const participants = metadata.participants.map(v=>v.id)
+const text = args.join(" ")
 
-const text = args.join(' ') || 'Hidden Tag Message'
+await sock.sendMessage(
+m.chat,
+{
+text: text || "Hidden Tag Message",
+mentions: participants.map(a => a.id)
+},
+{ quoted: m }
+)
 
-await sock.sendMessage(from,{ text, mentions: participants })
 }
 }
