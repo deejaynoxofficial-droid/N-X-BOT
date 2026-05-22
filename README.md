@@ -2,7 +2,7 @@
      NOX SPARROW BOT README
 ========================= -->
 
-# 🐦‍⬛ NOX SPARROW BOT<br>
+# 🐦‍⬛ 𝙽𝙾𝚇 𝚂𝙿𝙰𝚁𝚁𝙾𝚆 𝙱𝙾𝚃
 
 <div align="center">
 
