@@ -1,0 +1,27 @@
+{
+  "users": {},
+  "groups": {},
+  "settings": {
+    "botName": "𝙽𝙾𝚇 𝚂𝙿𝙰𝚁𝚁𝙾𝚆 𝙱𝙾𝚃",
+    "prefix": ".",
+    "mode": "public",
+    "welcome": true,
+    "antiLink": false,
+    "autoRead": true,
+    "autoTyping": false,
+    "autoRecording": false
+  },
+  "stats": {
+    "commands": 0,
+    "messages": 0,
+    "users": 0,
+    "groups": 0,
+    "uptime": 0
+  },
+  "banned": [],
+  "admins": [],
+  "premium": [],
+  "warnings": {},
+  "sessions": {},
+  "logs": []
+}
