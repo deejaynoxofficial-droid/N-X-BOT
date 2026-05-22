@@ -1,6 +1,6 @@
 ​## 🐦 NOX SPARROW BOT
 ​<p align="center">
-<img src="7996.jpg" alt="Nox Sparrow Bot Logo" width="250"/>
+<img src="bot.jpg" alt="Nox Sparrow Bot Logo" width="250"/>
 </p>
 ​<p align="center">
 <strong>A powerful, automated WhatsApp bot designed for speed, efficiency, and seamless user interaction.</strong>
