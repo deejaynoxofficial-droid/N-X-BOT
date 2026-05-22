@@ -1,53 +1,129 @@
-​## 🐦 NOX SPARROW BOT
-​<p align="center">
-<img src="bot.jpg" alt="Nox Sparrow Bot Logo" width="250"/>
+<!-- =========================
+     NOX SPARROW BOT README
+========================= -->
+
+<div align="center">
+
+<img src="./7996.jpg" width="220" style="border-radius:20px;" alt="Nox Sparrow Bot Logo"/>
+
+# 🐦‍⬛ NOX SPARROW BOT
+
+### ⚡ Advanced WhatsApp Multi-Device Bot Built With Baileys
+
+<p align="center">
+  <a href="#"><img src="https://img.shields.io/badge/Version-2.0-green?style=for-the-badge"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Status-Active-success?style=for-the-badge"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Platform-WhatsApp-darkgreen?style=for-the-badge"></a>
+  <a href="#"><img src="https://img.shields.io/badge/NodeJS-18+-brightgreen?style=for-the-badge"></a>
 </p>
-​<p align="center">
-<strong>A powerful, automated WhatsApp bot designed for speed, efficiency, and seamless user interaction.</strong>
+
+<p align="center">
+  <b>Fast • Secure • Powerful • Modern</b>
 </p>
-​<p align="center">
-<a href="[https://wa.me/256745720308](https://wa.me/256745720308)">
-<img src="[https://img.shields.io/badge/WhatsApp-Connect-25D366?style=for-the-badge&logo=whatsapp&logoColor=white](https://img.shields.io/badge/WhatsApp-Connect-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)" alt="WhatsApp"/>
-</a>
-</p>
-​⚡ Features
-​Multi-Device Support: Stays connected seamlessly using modern WhatsApp Web APIs.
-​Automated Responses: Instant replies to custom commands and frequently asked questions.
-​Media Handling: Smooth processing of images, videos, audio, and documents.
-​Group Management: Built-in tools for admins to manage groups efficiently (kick, add, tag all).
-​Sleek & Fast: Lightweight architecture optimized for quick response times and high uptime.<br>
-​🚀 Getting Started
-​Prerequisites
-​Node.js (v16+ recommended)
-​GitHub account
-​A secondary WhatsApp number for deployment
-​1. Installation
-​Clone the repository and install the required dependencies:<br>
-git clone https://github.com/deejaynoxofficial-droid/N-X-BOT<br>
-```cd nox-sparrow-bot```
-```npm install```
 
-2. *Configuration*
-​Create a .env file in the root directory and add your environment variables:
+</div>
 
-SESSION_ID=your_session_id_here
-PREFIX=.
-OWNER_NUMBER=256745720308
+---
 
-3. Run the Bot
-​Start the bot application:
+# ✨ Features
 
-```npm start```
+✅ Multi Device Support  
+✅ Auto Reconnect System  
+✅ Group Management Commands  
+✅ Downloader Commands  
+✅ Fun & Games Features  
+✅ AI Integration  
+✅ Custom Prefix Support  
+✅ Sticker Maker  
+✅ Anti-Link Protection  
+✅ Owner Commands  
+✅ Beautiful Menu Design  
+✅ Media Downloader  
+✅ 24/7 Deploy Support  
 
-​Scan the QR code displayed in your terminal using WhatsApp linked devices to connect.
-​🛠️ _Tech Stack_
-​Language: JavaScript / Node.js
-​API Framework: Baileys / WhatsApp Web.js
-​Database: MongoDB / Quick.db (Optional for data retention)<br>
-​📞 Contact & Support
-​For queries, feature requests, or custom setups, feel free to reach out:
-​WhatsApp: +256 745 720308<br>
-​Developer Name: Nox Star UG
-​<p align="center">
-<sub>Built with 💚 by Nox Star UG</sub>
-</p>
+---
+
+# 📂 Project Structure
+
+```bash
+NOX-SPARROW-BOT/
+│
+├──Updated
+🚀 Installation
+1️⃣ Clone Repository
+Bash
+git clone https://github.com/yourusername/nox-sparrow-bot.git
+2️⃣ Open Folder
+Bash
+cd nox-sparrow-bot
+3️⃣ Install Dependencies
+Bash
+npm install
+4️⃣ Start Bot
+Bash
+node index.js
+🔐 Pairing Code Setup
+After starting the bot:
+Bash
+Enter your WhatsApp number with country code.
+Example:
+Bash
+2567XXXXXXXX
+Then pair your WhatsApp account using the generated code.
+⚙️ Configuration
+Edit your configuration inside:
+Bash
+config.js
+Example:
+JavaScript
+module.exports = {
+  ownerNumber: "25670000000",
+  botName: "NOX SPARROW BOT",
+  prefix: "."
+}
+📜 Available Commands
+Category
+Commands
+Download
+ytmp3, ytmp4
+Group
+kick, add, promote
+Fun
+joke, quote, truth
+AI
+ai, gpt
+Tools
+sticker, ping, alive
+
+🌐 Deployment
+Heroku
+Bash
+heroku create
+git push heroku main
+Railway
+Bash
+Deploy directly from GitHub repository.
+VPS
+Bash
+pm2 start index.js
+🛡️ Security
+Never share your session files
+Keep your bot private
+Use environment variables for sensitive data
+👑 Owner
+�
+
+NOX STAR
+WhatsApp Bot Developer
+�
+
+❤️ Support
+If you like this project:
+⭐ Star The Repository
+🍴 Fork The Project
+📢 Share With Friends
+
+🐦‍⬛ NOX SPARROW BOT
+Built With ❤️ By NOX STAR
+�
+```
