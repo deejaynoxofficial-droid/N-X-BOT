@@ -162,29 +162,50 @@ async function startBot() {
             ]
         })
 
-     //========================================
-     // PAIRING CODE
-     //========================================
-    
-if (
-    !sock.authState.creds.registered
-) {
+//========================================
+// PAIRING CODE
+//========================================
 
-    const phone =
-        '256745720308'
+const delay = (ms) =>
+    new Promise(resolve =>
+        setTimeout(resolve, ms)
+    )
 
-    const code =
-        await sock.requestPairingCode(
-            phone.trim()
+if (!state.creds.registered) {
+
+    try {
+
+        const phone = '256745720308'
+
+        console.log(
+            chalk.yellow(
+                '\nREQUESTING PAIRING CODE...\n'
+            )
         )
 
-    console.log(
+        // WAIT BEFORE REQUESTING
+        await delay(8000)
 
-chalk.yellow(
-`\nPAIRING CODE: ${code}\n`
-)
+        const code =
+            await sock.requestPairingCode(
+                phone
+            )
 
-    )
+        console.log(
+            chalk.green(
+                `\nPAIRING CODE: ${code}\n`
+            )
+        )
+
+    } catch (pairError) {
+
+        console.log(
+            chalk.red(
+                'PAIRING ERROR:'
+            ),
+            pairError
+        )
+    }
 }
         
         //========================================
