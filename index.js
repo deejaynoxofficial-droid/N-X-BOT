@@ -35,7 +35,6 @@ const {
 const pino = require('pino')
 const fs = require('fs')
 const path = require('path')
-const readline = require('readline')
 
 const chalkImport = require('chalk')
 
@@ -77,28 +76,7 @@ try {
 
 let reconnecting = false
 let activeSocket = null
-
-//========================================
-// QUESTION PROMPT
-//========================================
-
-async function question(text) {
-
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    })
-
-    return new Promise(resolve => {
-
-        rl.question(text, answer => {
-
-            rl.close()
-
-            resolve(answer)
-        })
-    })
-}
+let sock = null
 
 //========================================
 // CREATE REQUIRED FOLDERS
@@ -197,7 +175,7 @@ async function startBot() {
         // CREATE SOCKET
         //========================================
 
-        const sock = makeWASocket({
+        sock = makeWASocket({
 
             logger: pino({
                 level: 'silent'
@@ -221,7 +199,7 @@ async function startBot() {
 
             syncFullHistory: false,
 
-            markOnlineOnConnect: true,
+            markOnlineOnConnect: false,
 
             defaultQueryTimeoutMs: 60000,
 
@@ -237,28 +215,6 @@ async function startBot() {
         })
 
         activeSocket = sock
-
-        //========================================
-        // PAIRING CODE
-        //========================================
-
-        if (!sock.authState.creds.registered) {
-
-    const phoneNumber = process.env.NUMBER
-
-    setTimeout(async () => {
-
-        const code =
-            await sock.requestPairingCode(phoneNumber)
-
-        console.log(`
-╔════════════════════╗
-   PAIRING CODE
-   ${code}
-╚════════════════════╝
-`)
-    }, 3000)
-}
 
         //========================================
         // SAVE CREDS
@@ -582,7 +538,7 @@ chalk.red(
 
                             console.log(
 chalk.red(
-'SESSION LOGGED OUT. DELETE SESSION FILES.'
+'SESSION LOGGED OUT. GENERATE NEW PAIR CODE.'
 )
                             )
 
@@ -633,54 +589,107 @@ chalk.yellow(
 }
 
 //========================================
-// DELETE OLD SESSION FILES
+// AUTOMATIC PAIRING API
 //========================================
 
-function deleteSession() {
-
-    const sessionPath =
-        settings.sessionFolder
+app.get('/pair', async (req, res) => {
 
     try {
 
-        if (
-            fs.existsSync(sessionPath)
-        ) {
+        const number =
+            req.query.number
 
-            fs.rmSync(
-                sessionPath,
-                {
-                    recursive: true,
-                    force: true
-                }
-            )
+        if (!number) {
 
-            console.log(
+            return res.send(`
+ENTER NUMBER LIKE:
 
-chalk.red(
-'OLD SESSION DELETED'
-)
+/pair?number=2567XXXXXXXX
+`)
+        }
 
+        if (!sock) {
+
+            return res.send(
+                'BOT NOT READY YET'
             )
         }
 
-    } catch (err) {
+        const cleanNumber =
+            number.replace(/[^0-9]/g, '')
+
+        const code =
+            await sock.requestPairingCode(
+                cleanNumber
+            )
 
         console.log(
+            chalk.green(
+                `PAIR CODE GENERATED FOR ${cleanNumber}`
+            )
+        )
 
-chalk.red(
-'SESSION DELETE ERROR:'
-),
+        res.send(`
+<!DOCTYPE html>
 
+<html>
+
+<head>
+
+<title>NOX-SPARROW PAIR</title>
+
+<style>
+
+body{
+background:#0f0f0f;
+color:white;
+font-family:monospace;
+text-align:center;
+padding-top:80px;
+}
+
+.code{
+font-size:40px;
+color:lime;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>NOX-SPARROW BOT</h1>
+
+<h2>PAIRING CODE</h2>
+
+<div class="code">
+${code}
+</div>
+
+</body>
+
+</html>
+`)
+    }
+
+    catch (err) {
+
+        console.log(
+            chalk.red(
+                'PAIR API ERROR:'
+            ),
             err
         )
+
+        res.send(
+            'FAILED TO GENERATE PAIR CODE'
+        )
     }
-}
+})
 
 //========================================
 // START BOT
 //========================================
-
-deleteSession()
 
 startBot()
