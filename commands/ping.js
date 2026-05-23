@@ -1,4 +1,4 @@
-const { runtime } = require('../lib/functions')
+const { runtime } = require('../utils/functions')
 
 module.exports = {
     name: 'ping',
