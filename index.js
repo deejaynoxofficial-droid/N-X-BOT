@@ -138,60 +138,63 @@ async function startBot() {
         } =
             await fetchLatestBaileysVersion()
 
-        //========================================
-        // CREATE SOCKET
-        //========================================
+//========================================
+// CREATE SOCKET
+//========================================
 
-        const sock = makeWASocket({
+const sock = makeWASocket({
 
-            logger:
-                pino({
-                    level: 'silent'
-                }),
+    logger: pino({
+        level: 'silent'
+    }),
 
-            auth: state,
+    auth: state,
 
-            version,
+    version,
 
-            browser: [
+    browser: [
 
-                settings.botName ||
-                    'NOX-SPARROW',
+        settings.botName ||
+        'NOX-SPARROW',
 
-                'Chrome',
+        'Chrome',
 
-                '1.0.0'
-            ]
-        })
+        '1.0.0'
+    ]
+})
 
-/* ===============================
-   PAIRING CODE SYSTEM
-================================ */
+//========================================
+// PAIRING CODE SYSTEM
+//========================================
 
-if (!client.authState.creds.registered) {
+if (!sock.authState.creds.registered) {
 
-    // Get phone number from .env
-    const phoneNumber = process.env.PHONE_NUMBER
+    try {
 
-    // Request pairing code
-    const code = await client.requestPairingCode(phoneNumber)
+        const phoneNumber =
+            process.env.PHONE_NUMBER
 
-    // Display pairing code
-    console.log(`
+        const code =
+            await sock.requestPairingCode(
+                phoneNumber
+            )
+
+        console.log(`
 ╭──────────────────────╮
 │   WHATSAPP PAIRING   │
 ├──────────────────────┤
 │  CODE: ${code}  │
 ╰──────────────────────╯
 `)
-}
 
     } catch (pairError) {
 
         console.log(
+
             chalk.red(
                 'PAIRING ERROR:'
             ),
+
             pairError
         )
     }
