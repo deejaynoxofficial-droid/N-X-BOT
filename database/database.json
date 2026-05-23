@@ -1,0 +1,97 @@
+{
+    "users": {},
+
+    "groups": {
+
+        "GROUP_ID": {
+
+            "antilink": {
+
+                "enabled": false,
+
+                "mode": "delete"
+            },
+
+            "antibadword": {
+
+                "enabled": false,
+
+                "mode": "delete"
+            },
+
+            "adminsonly": false,
+
+            "groupmode": "open",
+
+            "mute": false,
+
+            "nsfw": false,
+
+            "warnings": {}
+        }
+    },
+
+    "settings": {
+
+        "bot": {
+
+            "prefix": ".",
+
+            "mode": "public",
+
+            "autoRead": false,
+
+            "autoTyping": false,
+
+            "autoRecording": false,
+
+            "autoSticker": false,
+
+            "autoReply": false,
+
+            "autoReplyMessage": "🤖 Hello, I am currently busy. I will reply later.",
+
+            "autoViewOnce": false,
+
+            "autoViewOnceMode": "private",
+
+            "antiCall": false
+        },
+
+        "owner": {
+
+            "numbers": [
+                "256700000000"
+            ]
+        },
+
+        "apis": {
+
+            "neoxr": "",
+
+            "apiKey": ""
+        }
+    },
+
+    "chatbot": {
+
+        "enabled": true
+    },
+
+    "broadcasts": [],
+
+    "downloads": {},
+
+    "stickers": {},
+
+    "statistics": {
+
+        "commands": 0,
+
+        "messages": 0,
+
+        "groups": 0,
+
+        "users": 0
+    }
+}
