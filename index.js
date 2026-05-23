@@ -670,7 +670,54 @@ chalk.yellow(
 }
 
 //========================================
+// DELETE OLD SESSION FILES
+//========================================
+
+function deleteSession() {
+
+    const sessionPath =
+        settings.sessionFolder
+
+    try {
+
+        if (
+            fs.existsSync(sessionPath)
+        ) {
+
+            fs.rmSync(
+                sessionPath,
+                {
+                    recursive: true,
+                    force: true
+                }
+            )
+
+            console.log(
+
+chalk.red(
+'OLD SESSION DELETED'
+)
+
+            )
+        }
+
+    } catch (err) {
+
+        console.log(
+
+chalk.red(
+'SESSION DELETE ERROR:'
+),
+
+            err
+        )
+    }
+}
+
+//========================================
 // START BOT
 //========================================
+
+deleteSession()
 
 startBot()
