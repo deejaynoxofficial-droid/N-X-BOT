@@ -244,58 +244,21 @@ async function startBot() {
 
         if (!sock.authState.creds.registered) {
 
-            try {
+    const phoneNumber = process.env.NUMBER
 
-                const phoneNumber =
-                    process.env.PHONE_NUMBER
+    setTimeout(async () => {
 
-                if (!phoneNumber) {
+        const code =
+            await sock.requestPairingCode(phoneNumber)
 
-                    console.log(
-                        chalk.red(
-                            'PHONE_NUMBER missing in .env'
-                        )
-                    )
-
-                    process.exit(1)
-                }
-
-                console.log(
-                    chalk.yellow(
-                        'PREPARING PAIRING CODE...'
-                    )
-                )
-
-                // WAIT FOR STABLE CONNECTION
-                await new Promise(resolve =>
-                    setTimeout(resolve, 10000)
-                )
-
-                const code =
-                    await sock.requestPairingCode(
-                        phoneNumber.trim()
-                    )
-
-                console.log(
-chalk.green(`
-╭──────────────────────────╮
-│   WHATSAPP PAIRING CODE  │
-├──────────────────────────┤
-│      ${code}      │
-╰──────────────────────────╯
+        console.log(`
+╔════════════════════╗
+   PAIRING CODE
+   ${code}
+╚════════════════════╝
 `)
-                )
-
-            } catch (err) {
-
-                console.log(
-                    chalk.red(
-                        'PAIRING ERROR:'
-                    ),
-                    err
-                )
-            }
-        }
+    }, 3000)
+}
 
         //========================================
         // SAVE CREDS
