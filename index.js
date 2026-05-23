@@ -164,22 +164,24 @@ const sock = makeWASocket({
 })
 
 //========================================
-// PAIRING CODE SYSTEM
+// PAIRING CODE
 //========================================
 
 if (!sock.authState.creds.registered) {
 
-    try {
+    setTimeout(async () => {
 
-        const phoneNumber =
-            process.env.PHONE_NUMBER
+        try {
 
-        const code =
-            await sock.requestPairingCode(
-                phoneNumber
-            )
+            const phoneNumber =
+                process.env.PHONE_NUMBER
 
-        console.log(`
+            const code =
+                await sock.requestPairingCode(
+                    phoneNumber
+                )
+
+            console.log(`
 ╭──────────────────────╮
 │   WHATSAPP PAIRING   │
 ├──────────────────────┤
@@ -187,17 +189,17 @@ if (!sock.authState.creds.registered) {
 ╰──────────────────────╯
 `)
 
-    } catch (pairError) {
+        } catch (err) {
 
-        console.log(
+            console.log(
+                chalk.red(
+                    'PAIRING ERROR:'
+                ),
+                err
+            )
+        }
 
-            chalk.red(
-                'PAIRING ERROR:'
-            ),
-
-            pairError
-        )
-    }
+    }, 5000)
 }
         
         //========================================
