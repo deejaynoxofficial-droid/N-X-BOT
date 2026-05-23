@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://i.imgur.com/6JX10Jm.png" width="100%"/>
+<img src="https://i.ibb.co/7ds1NcBG/RD32353637343837353231353240732e77686174736170702e6e6574-404220.jpg" width="100%"/>
 
 # 👑 NOX SPARROW MD 👑
 
