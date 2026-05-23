@@ -162,37 +162,31 @@ async function startBot() {
             ]
         })
 
-        //========================================
-        // PAIRING CODE
-        //========================================
+     //========================================
+     // PAIRING CODE
+     //========================================
+    
+if (
+    !sock.authState.creds.registered
+) {
 
-        if (
-            !sock.authState.creds.registered
-        ) {
+    const phone =
+        '256700123456'
 
-            const phone =
-                await question(
+    const code =
+        await sock.requestPairingCode(
+            phone.trim()
+        )
 
-chalk.green(
-'\nENTER YOUR NUMBER WITH COUNTRY CODE:\n'
-)
-
-                )
-
-            const code =
-                await sock.requestPairingCode(
-                    phone.trim()
-                )
-
-            console.log(
+    console.log(
 
 chalk.yellow(
 `\nPAIRING CODE: ${code}\n`
 )
 
-            )
-        }
-
+    )
+}
+        
         //========================================
         // SAVE CREDS
         //========================================
