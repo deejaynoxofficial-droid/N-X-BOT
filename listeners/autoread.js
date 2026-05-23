@@ -235,5 +235,13 @@ module.exports = {
 
             } catch {}
         }
+    },
+
+    async run(sock, msg, args) {
+        return this.execute(
+            sock,
+            msg,
+            args
+        )
     }
 }
