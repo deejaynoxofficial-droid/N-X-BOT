@@ -1,3 +1,5 @@
+require("dotenv").config()
+
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -162,40 +164,27 @@ async function startBot() {
             ]
         })
 
-//========================================
-// PAIRING CODE
-//========================================
+/* ===============================
+   PAIRING CODE SYSTEM
+================================ */
 
-const delay = (ms) =>
-    new Promise(resolve =>
-        setTimeout(resolve, ms)
-    )
+if (!client.authState.creds.registered) {
 
-if (!state.creds.registered) {
+    // Get phone number from .env
+    const phoneNumber = process.env.PHONE_NUMBER
 
-    try {
+    // Request pairing code
+    const code = await client.requestPairingCode(phoneNumber)
 
-        const phone = '256745720308'
-
-        console.log(
-            chalk.yellow(
-                '\nREQUESTING PAIRING CODE...\n'
-            )
-        )
-
-        // WAIT BEFORE REQUESTING
-        await delay(8000)
-
-        const code =
-            await sock.requestPairingCode(
-                phone
-            )
-
-        console.log(
-            chalk.green(
-                `\nPAIRING CODE: ${code}\n`
-            )
-        )
+    // Display pairing code
+    console.log(`
+╭──────────────────────╮
+│   WHATSAPP PAIRING   │
+├──────────────────────┤
+│  CODE: ${code}  │
+╰──────────────────────╯
+`)
+}
 
     } catch (pairError) {
 
