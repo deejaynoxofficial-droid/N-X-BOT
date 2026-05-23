@@ -6,7 +6,7 @@ const settings = require('../settings')
 const {
     getUser,
     getGroup
-} = require('./database')
+} = require('../database/database')
 
 const commands = new Map()
 
