@@ -9,7 +9,12 @@ const pino = require('pino')
 const fs = require('fs')
 const path = require('path')
 const readline = require('readline')
-const chalk = require('chalk')
+const chalkImport =
+    require('chalk')
+
+const chalk =
+    chalkImport.default ||
+    chalkImport
 
 const settings = require('./settings')
 
