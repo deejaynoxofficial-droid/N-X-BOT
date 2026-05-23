@@ -43,6 +43,8 @@
 
     "dotenv": "latest",
 
+    "express": "^4.21.2",
+
     "figlet": "latest",
 
     "file-type": "latest",
