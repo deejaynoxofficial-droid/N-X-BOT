@@ -171,7 +171,7 @@ if (
 ) {
 
     const phone =
-        '256700123456'
+        '256745720308'
 
     const code =
         await sock.requestPairingCode(
