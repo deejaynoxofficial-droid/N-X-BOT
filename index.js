@@ -1,29 +1,12 @@
 require('dotenv').config()
 
 //========================================
-// EXPRESS SERVER (RENDER SAFE)
+// IMPORTS
 //========================================
 
 const express = require('express')
 
 const app = express()
-
-app.get('/', (req, res) => {
-    res.send('NOX-SPARROW BOT RUNNING')
-})
-
-const PORT = process.env.PORT || 3000
-
-app.listen(PORT, () => {
-
-    console.log(
-        `SERVER RUNNING ON PORT ${PORT}`
-    )
-})
-
-//========================================
-// IMPORTS
-//========================================
 
 const {
     default: makeWASocket,
@@ -33,16 +16,20 @@ const {
 } = require('@whiskeysockets/baileys')
 
 const pino = require('pino')
+
 const fs = require('fs')
+
 const path = require('path')
 
-const chalkImport = require('chalk')
+const chalkImport =
+    require('chalk')
 
 const chalk =
     chalkImport.default ||
     chalkImport
 
-const settings = require('./settings')
+const settings =
+    require('./settings')
 
 const {
     handleCommand
@@ -71,12 +58,29 @@ try {
 } catch {}
 
 //========================================
-// GLOBAL SOCKET PROTECTION
+// GLOBALS
 //========================================
 
 let reconnecting = false
+
 let activeSocket = null
+
 let sock = null
+
+//========================================
+// EXPRESS STATIC WEBSITE
+//========================================
+
+app.use(
+
+    express.static(
+
+        path.join(
+            __dirname,
+            'public'
+        )
+    )
+)
 
 //========================================
 // CREATE REQUIRED FOLDERS
@@ -92,7 +96,9 @@ function createFolders() {
 
         settings.logsFolder,
 
-        path.dirname(settings.database),
+        path.dirname(
+            settings.database
+        ),
 
         './temp/audio',
 
@@ -128,7 +134,7 @@ async function startBot() {
     try {
 
         //========================================
-        // PREVENT DUPLICATE SOCKETS
+        // CLOSE OLD SOCKET
         //========================================
 
         if (activeSocket) {
@@ -153,21 +159,24 @@ async function startBot() {
         const {
             state,
             saveCreds
-        } = await useMultiFileAuthState(
-            settings.sessionFolder
-        )
+        } =
+            await useMultiFileAuthState(
+                settings.sessionFolder
+            )
 
         //========================================
-        // BAILEYS VERSION
+        // FETCH VERSION
         //========================================
 
         const {
             version
-        } = await fetchLatestBaileysVersion()
+        } =
+            await fetchLatestBaileysVersion()
 
         console.log(
+
             chalk.cyan(
-                `USING BAILEYS VERSION: ${version}`
+                `USING VERSION: ${version}`
             )
         )
 
@@ -177,22 +186,19 @@ async function startBot() {
 
         sock = makeWASocket({
 
-            logger: pino({
-                level: 'silent'
-            }),
+            logger:
+                pino({
+                    level: 'silent'
+                }),
 
             auth: state,
 
             version,
 
             browser: [
-
-                settings.botName ||
-                'NOX-SPARROW',
-
+                'Ubuntu',
                 'Chrome',
-
-                '1.0.0'
+                '20.0.04'
             ],
 
             printQRInTerminal: false,
@@ -230,12 +236,15 @@ async function startBot() {
         //========================================
 
         sock.ev.on(
+
             'messages.upsert',
+
             async ({ messages }) => {
 
                 try {
 
-                    const msg = messages?.[0]
+                    const msg =
+                        messages?.[0]
 
                     if (
                         !msg ||
@@ -278,15 +287,18 @@ async function startBot() {
                         getUser(sender)
 
                         if (isGroup) {
+
                             getGroup(from)
                         }
 
                     } catch (dbError) {
 
                         console.log(
+
                             chalk.red(
                                 'DATABASE ERROR:'
                             ),
+
                             dbError
                         )
                     }
@@ -295,7 +307,9 @@ async function startBot() {
                     // AUTO READ
                     //========================================
 
-                    if (settings.autoRead) {
+                    if (
+                        settings.autoRead
+                    ) {
 
                         try {
 
@@ -310,7 +324,9 @@ async function startBot() {
                     // AUTO TYPING
                     //========================================
 
-                    if (settings.autoTyping) {
+                    if (
+                        settings.autoTyping
+                    ) {
 
                         try {
 
@@ -326,7 +342,9 @@ async function startBot() {
                     // AUTO RECORDING
                     //========================================
 
-                    if (settings.autoRecording) {
+                    if (
+                        settings.autoRecording
+                    ) {
 
                         try {
 
@@ -357,16 +375,18 @@ async function startBot() {
                         } catch (viewError) {
 
                             console.log(
+
                                 chalk.red(
                                     'AUTO VIEWONCE ERROR:'
                                 ),
+
                                 viewError
                             )
                         }
                     }
 
                     //========================================
-                    // LISTENER HANDLER
+                    // LISTENERS
                     //========================================
 
                     try {
@@ -379,9 +399,11 @@ async function startBot() {
                     } catch (listenerError) {
 
                         console.log(
+
                             chalk.red(
                                 'LISTENER ERROR:'
                             ),
+
                             listenerError
                         )
                     }
@@ -391,7 +413,8 @@ async function startBot() {
                     //========================================
 
                     if (
-                        global.autoReplyEnabled === true
+                        global.autoReplyEnabled ===
+                        true
                     ) {
 
                         try {
@@ -436,7 +459,7 @@ async function startBot() {
                     }
 
                     //========================================
-                    // COMMAND HANDLER
+                    // COMMANDS
                     //========================================
 
                     try {
@@ -449,9 +472,11 @@ async function startBot() {
                     } catch (cmdError) {
 
                         console.log(
+
                             chalk.red(
                                 'COMMAND ERROR:'
                             ),
+
                             cmdError
                         )
                     }
@@ -459,9 +484,11 @@ async function startBot() {
                 } catch (err) {
 
                     console.log(
+
                         chalk.red(
                             'MESSAGE EVENT ERROR:'
                         ),
+
                         err
                     )
                 }
@@ -473,7 +500,9 @@ async function startBot() {
         //========================================
 
         sock.ev.on(
+
             'connection.update',
+
             async ({
                 connection,
                 lastDisconnect
@@ -482,15 +511,23 @@ async function startBot() {
                 try {
 
                     const statusCode =
-                        lastDisconnect?.error?.output?.statusCode
+
+                        lastDisconnect
+                            ?.error
+                            ?.output
+                            ?.statusCode
 
                     //========================================
                     // CONNECTING
                     //========================================
 
-                    if (connection === 'connecting') {
+                    if (
+                        connection ===
+                        'connecting'
+                    ) {
 
                         console.log(
+
                             chalk.yellow(
                                 'CONNECTING TO WHATSAPP...'
                             )
@@ -498,75 +535,100 @@ async function startBot() {
                     }
 
                     //========================================
-                    // OPEN
+                    // CONNECTED
                     //========================================
 
-                    if (connection === 'open') {
+                    if (
+                        connection ===
+                        'open'
+                    ) {
 
                         reconnecting = false
 
                         console.log(
-chalk.green(
-'\nBOT CONNECTED SUCCESSFULLY\n'
-)
+
+                            chalk.green(
+                                '\nBOT CONNECTED SUCCESSFULLY\n'
+                            )
                         )
 
                         console.log(
-chalk.cyan(
-`CONNECTED AS: ${sock.user?.id || 'UNKNOWN'}\n`
-)
+
+                            chalk.cyan(
+                                `CONNECTED AS: ${sock.user?.id || 'UNKNOWN'}`
+                            )
                         )
                     }
 
                     //========================================
-                    // CLOSE
+                    // CONNECTION CLOSED
                     //========================================
 
-                    if (connection === 'close') {
+                    if (
+                        connection ===
+                        'close'
+                    ) {
 
                         console.log(
-chalk.red(
-`CONNECTION CLOSED | STATUS: ${statusCode}`
-)
+
+                            chalk.red(
+                                `CONNECTION CLOSED | STATUS: ${statusCode}`
+                            )
                         )
 
+                        //========================================
                         // LOGGED OUT
+                        //========================================
+
                         if (
-                            statusCode === DisconnectReason.loggedOut ||
+                            statusCode ===
+                            DisconnectReason.loggedOut ||
+
                             statusCode === 401
                         ) {
 
                             console.log(
-chalk.red(
-'SESSION LOGGED OUT. GENERATE NEW PAIR CODE.'
-)
+
+                                chalk.red(
+                                    'SESSION LOGGED OUT'
+                                )
                             )
 
                             return
                         }
 
-                        // AVOID MULTIPLE RECONNECTS
-                        if (reconnecting) return
+                        //========================================
+                        // PREVENT MULTIPLE RECONNECTS
+                        //========================================
+
+                        if (
+                            reconnecting
+                        ) return
 
                         reconnecting = true
 
                         console.log(
-chalk.yellow(
-'RECONNECTING IN 5 SECONDS...'
-)
+
+                            chalk.yellow(
+                                'RECONNECTING IN 5 SECONDS...'
+                            )
                         )
 
                         setTimeout(() => {
+
                             startBot()
+
                         }, 5000)
                     }
 
                 } catch (connError) {
 
                     console.log(
+
                         chalk.red(
                             'CONNECTION ERROR:'
                         ),
+
                         connError
                     )
                 }
@@ -576,120 +638,127 @@ chalk.yellow(
     } catch (error) {
 
         console.log(
+
             chalk.red(
                 'START BOT ERROR:'
             ),
+
             error
         )
 
         setTimeout(() => {
+
             startBot()
+
         }, 5000)
     }
 }
 
 //========================================
-// AUTOMATIC PAIRING API
+// PAIR API
 //========================================
 
-app.get('/pair', async (req, res) => {
+app.get(
 
-    try {
+    '/pair',
 
-        const number =
-            req.query.number
+    async (req, res) => {
 
-        if (!number) {
+        try {
 
-            return res.send(`
-ENTER NUMBER LIKE:
+            const number =
+                req.query.number
 
-/pair?number=2567XXXXXXXX
-`)
-        }
+            if (!number) {
 
-        if (!sock) {
+                return res.send(
+                    'ENTER PHONE NUMBER'
+                )
+            }
 
-            return res.send(
-                'BOT NOT READY YET'
+            if (!sock) {
+
+                return res.send(
+                    'BOT NOT READY'
+                )
+            }
+
+            const cleanNumber =
+
+                number.replace(
+                    /[^0-9]/g,
+                    ''
+                )
+
+            //========================================
+            // DELAY FIX
+            //========================================
+
+            await new Promise(resolve =>
+
+                setTimeout(
+                    resolve,
+                    5000
+                )
+            )
+
+            //========================================
+            // GENERATE CODE
+            //========================================
+
+            const code =
+
+                await sock.requestPairingCode(
+                    cleanNumber
+                )
+
+            console.log(
+
+                chalk.green(
+                    `PAIR CODE GENERATED FOR ${cleanNumber}`
+                )
+            )
+
+            res.send(code)
+
+        } catch (err) {
+
+            console.log(
+
+                chalk.red(
+                    'PAIR API ERROR:'
+                ),
+
+                err
+            )
+
+            res.send(
+                'FAILED'
             )
         }
+    }
+)
 
-        const cleanNumber =
-            number.replace(/[^0-9]/g, '')
+//========================================
+// START EXPRESS + BOT
+//========================================
 
-        const code =
-            await sock.requestPairingCode(
-                cleanNumber
-            )
+const PORT =
+    process.env.PORT || 3000
+
+app.listen(
+
+    PORT,
+
+    () => {
 
         console.log(
+
             chalk.green(
-                `PAIR CODE GENERATED FOR ${cleanNumber}`
+                `WEB SERVER RUNNING ON ${PORT}`
             )
         )
 
-        res.send(`
-<!DOCTYPE html>
-
-<html>
-
-<head>
-
-<title>NOX-SPARROW PAIR</title>
-
-<style>
-
-body{
-background:#0f0f0f;
-color:white;
-font-family:monospace;
-text-align:center;
-padding-top:80px;
-}
-
-.code{
-font-size:40px;
-color:lime;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<h1>NOX-SPARROW BOT</h1>
-
-<h2>PAIRING CODE</h2>
-
-<div class="code">
-${code}
-</div>
-
-</body>
-
-</html>
-`)
+        startBot()
     }
-
-    catch (err) {
-
-        console.log(
-            chalk.red(
-                'PAIR API ERROR:'
-            ),
-            err
-        )
-
-        res.send(
-            'FAILED TO GENERATE PAIR CODE'
-        )
-    }
-})
-
-//========================================
-// START BOT
-//========================================
-
-startBot()
+)
