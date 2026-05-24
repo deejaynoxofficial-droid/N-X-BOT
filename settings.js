@@ -69,6 +69,41 @@ module.exports = {
         false,
 
     //========================================
+    // COMMAND SETTINGS
+    //========================================
+
+    replyCommands:
+        true,
+
+    commandReaction:
+        true,
+
+    commandLogs:
+        true,
+
+    commandCooldown:
+        3,
+
+    deleteInvalidCommands:
+        false,
+
+    //========================================
+    // MENU SETTINGS
+    //========================================
+
+    menuType:
+        'grouped',
+
+    menuEmoji:
+        true,
+
+    menuImage:
+        true,
+
+    menuReply:
+        true,
+
+    //========================================
     // AUTO FEATURES
     //========================================
 
@@ -126,6 +161,35 @@ module.exports = {
 
     nsfw:
         false,
+
+    //========================================
+    // SECURITY SETTINGS
+    //========================================
+
+    antiCrash:
+        true,
+
+    antiBug:
+        true,
+
+    antiFlood:
+        true,
+
+    antiCommandSpam:
+        true,
+
+    //========================================
+    // MULTI USER SETTINGS
+    //========================================
+
+    multiUser:
+        true,
+
+    savePairSessions:
+        true,
+
+    pairCodeByReply:
+        true,
 
     //========================================
     // SPAM SETTINGS
