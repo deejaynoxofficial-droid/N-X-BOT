@@ -68,6 +68,251 @@ let activeSocket = null
 let sock = null
 
 //========================================
+// SOCKET MANAGER
+//========================================
+
+const sessions = new Map()
+
+async function createPairSocket(phone) {
+
+    try {
+
+        //========================================
+        // RETURN EXISTING SOCKET
+        //========================================
+
+        if (sessions.has(phone)) {
+
+            return sessions.get(phone)
+        }
+
+        //========================================
+        // SESSION PATH
+        //========================================
+
+        const sessionPath =
+
+            path.join(
+                __dirname,
+                'sessions',
+                phone
+            )
+
+        if (!fs.existsSync(sessionPath)) {
+
+            fs.mkdirSync(
+                sessionPath,
+                {
+                    recursive: true
+                }
+            )
+        }
+
+        //========================================
+        // AUTH STATE
+        //========================================
+
+        const {
+            state,
+            saveCreds
+        } =
+        await useMultiFileAuthState(
+            sessionPath
+        )
+
+        //========================================
+        // VERSION
+        //========================================
+
+        const {
+            version
+        } =
+        await fetchLatestBaileysVersion()
+
+        //========================================
+        // CREATE SOCKET
+        //========================================
+
+        const pairSock =
+            makeWASocket({
+
+                auth: state,
+
+                version,
+
+                logger: pino({
+                    level: 'silent'
+                }),
+
+                browser: [
+                    'Ubuntu',
+                    'Chrome',
+                    '20.0.04'
+                ],
+
+                printQRInTerminal: false,
+
+                syncFullHistory: false,
+
+                markOnlineOnConnect: false,
+
+                keepAliveIntervalMs: 10000,
+
+                connectTimeoutMs: 60000,
+
+                defaultQueryTimeoutMs: 60000
+            })
+
+        //========================================
+        // SAVE CREDS
+        //========================================
+
+        pairSock.ev.on(
+            'creds.update',
+            saveCreds
+        )
+
+        //========================================
+        // SAVE SOCKET
+        //========================================
+
+        sessions.set(
+            phone,
+            pairSock
+        )
+
+        //========================================
+        // CONNECTION UPDATE
+        //========================================
+
+        pairSock.ev.on(
+            'connection.update',
+            async ({
+                connection,
+                lastDisconnect
+            }) => {
+
+                try {
+
+                    const statusCode =
+
+                        lastDisconnect
+                            ?.error
+                            ?.output
+                            ?.statusCode
+
+                    // CONNECTED
+                    if (
+                        connection ===
+                        'open'
+                    ) {
+
+                        console.log(
+
+                            chalk.green(
+                                `${phone} CONNECTED`
+                            )
+                        )
+                    }
+
+                    // CLOSED
+                    if (
+                        connection ===
+                        'close'
+                    ) {
+
+                        console.log(
+
+                            chalk.red(
+                                `${phone} DISCONNECTED`
+                            )
+                        )
+
+                        // LOGGED OUT
+                        if (
+                            statusCode ===
+                            DisconnectReason.loggedOut
+                        ) {
+
+                            cleanupSession(phone)
+
+                            return
+                        }
+
+                        // RECONNECT
+                        setTimeout(() => {
+
+                            createPairSocket(phone)
+
+                        }, 5000)
+                    }
+
+                } catch (err) {
+
+                    console.log(
+                        err
+                    )
+                }
+            }
+        )
+
+        return pairSock
+
+    } catch (err) {
+
+        console.log(
+            err
+        )
+    }
+}
+
+//========================================
+// CLEANUP SESSION
+//========================================
+
+function cleanupSession(phone) {
+
+    try {
+
+        const sessionPath =
+
+            path.join(
+                __dirname,
+                'sessions',
+                phone
+            )
+
+        if (
+            fs.existsSync(sessionPath)
+        ) {
+
+            fs.rmSync(
+                sessionPath,
+                {
+                    recursive: true,
+                    force: true
+                }
+            )
+        }
+
+        sessions.delete(phone)
+
+        console.log(
+
+            chalk.yellow(
+                `SESSION REMOVED: ${phone}`
+            )
+        )
+
+    } catch (err) {
+
+        console.log(
+            err
+        )
+    }
+}
+
+//========================================
 // EXPRESS STATIC WEBSITE
 //========================================
 
@@ -99,6 +344,8 @@ function createFolders() {
         path.dirname(
             settings.database
         ),
+
+        './sessions',
 
         './temp/audio',
 
@@ -253,10 +500,6 @@ async function startBot() {
                         return
                     }
 
-                    //========================================
-                    // IGNORE STATUS
-                    //========================================
-
                     if (
                         msg.key.remoteJid ===
                         'status@broadcast'
@@ -277,10 +520,6 @@ async function startBot() {
                                 ''
                               )
                             : from
-
-                    //========================================
-                    // DATABASE INIT
-                    //========================================
 
                     try {
 
@@ -303,10 +542,6 @@ async function startBot() {
                         )
                     }
 
-                    //========================================
-                    // AUTO READ
-                    //========================================
-
                     if (
                         settings.autoRead
                     ) {
@@ -319,10 +554,6 @@ async function startBot() {
 
                         } catch {}
                     }
-
-                    //========================================
-                    // AUTO TYPING
-                    //========================================
 
                     if (
                         settings.autoTyping
@@ -338,10 +569,6 @@ async function startBot() {
                         } catch {}
                     }
 
-                    //========================================
-                    // AUTO RECORDING
-                    //========================================
-
                     if (
                         settings.autoRecording
                     ) {
@@ -355,10 +582,6 @@ async function startBot() {
 
                         } catch {}
                     }
-
-                    //========================================
-                    // AUTO VIEW ONCE
-                    //========================================
 
                     if (
                         settings.antiViewOnce &&
@@ -385,10 +608,6 @@ async function startBot() {
                         }
                     }
 
-                    //========================================
-                    // LISTENERS
-                    //========================================
-
                     try {
 
                         await handleListeners(
@@ -407,10 +626,6 @@ async function startBot() {
                             listenerError
                         )
                     }
-
-                    //========================================
-                    // AUTO REPLY
-                    //========================================
 
                     if (
                         global.autoReplyEnabled ===
@@ -457,10 +672,6 @@ async function startBot() {
 
                         } catch {}
                     }
-
-                    //========================================
-                    // COMMANDS
-                    //========================================
 
                     try {
 
@@ -517,10 +728,6 @@ async function startBot() {
                             ?.output
                             ?.statusCode
 
-                    //========================================
-                    // CONNECTING
-                    //========================================
-
                     if (
                         connection ===
                         'connecting'
@@ -533,10 +740,6 @@ async function startBot() {
                             )
                         )
                     }
-
-                    //========================================
-                    // CONNECTED
-                    //========================================
 
                     if (
                         connection ===
@@ -560,10 +763,6 @@ async function startBot() {
                         )
                     }
 
-                    //========================================
-                    // CONNECTION CLOSED
-                    //========================================
-
                     if (
                         connection ===
                         'close'
@@ -575,10 +774,6 @@ async function startBot() {
                                 `CONNECTION CLOSED | STATUS: ${statusCode}`
                             )
                         )
-
-                        //========================================
-                        // LOGGED OUT
-                        //========================================
 
                         if (
                             statusCode ===
@@ -596,10 +791,6 @@ async function startBot() {
 
                             return
                         }
-
-                        //========================================
-                        // PREVENT MULTIPLE RECONNECTS
-                        //========================================
 
                         if (
                             reconnecting
@@ -676,13 +867,6 @@ app.get(
                 )
             }
 
-            if (!sock) {
-
-                return res.send(
-                    'BOT NOT READY'
-                )
-            }
-
             const cleanNumber =
 
                 number.replace(
@@ -691,7 +875,16 @@ app.get(
                 )
 
             //========================================
-            // DELAY FIX
+            // CREATE USER SOCKET
+            //========================================
+
+            const pairSock =
+                await createPairSocket(
+                    cleanNumber
+                )
+
+            //========================================
+            // WAIT FIX
             //========================================
 
             await new Promise(resolve =>
@@ -708,7 +901,7 @@ app.get(
 
             const code =
 
-                await sock.requestPairingCode(
+                await pairSock.requestPairingCode(
                     cleanNumber
                 )
 
@@ -738,6 +931,61 @@ app.get(
         }
     }
 )
+
+//========================================
+// ROOT PAGE
+//========================================
+
+app.get(
+    '/',
+    (req, res) => {
+
+        res.sendFile(
+            path.join(
+                __dirname,
+                'public',
+                'index.html'
+            )
+        )
+    }
+)
+
+//========================================
+// AUTO CLEANUP
+//========================================
+
+setInterval(() => {
+
+    try {
+
+        const now =
+            Date.now()
+
+        sessions.forEach(
+            (socket, phone) => {
+
+                const sessionPath =
+
+                    path.join(
+                        __dirname,
+                        'sessions',
+                        phone
+                    )
+
+                // REMOVE EMPTY SESSIONS
+                if (
+                    !fs.existsSync(
+                        sessionPath
+                    )
+                ) {
+
+                    sessions.delete(phone)
+                }
+            }
+        )
+
+    } catch {}
+}, 600000)
 
 //========================================
 // START EXPRESS + BOT
