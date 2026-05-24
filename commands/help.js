@@ -18,23 +18,26 @@ const dbPath = path.join(
 )
 
 module.exports = {
+
     name: 'help',
 
-    async execute(sock, msg, args) {
+    aliases: ['commands'],
 
-        const from =
-            msg?.key?.remoteJid
+    async execute(sock, msg, args = []) {
 
         try {
 
-            if (
-                !from ||
-                typeof from !== 'string'
-            ) {
-                return
-            }
+            const from =
+                msg?.key?.remoteJid
 
-            let prefix = '.'
+            if (!from) return
+
+            let prefix =
+                settings.prefix || '.'
+
+            //========================================
+            // LOAD PREFIX FROM DATABASE
+            //========================================
 
             try {
 
@@ -57,15 +60,11 @@ module.exports = {
                             JSON.parse(raw)
 
                         if (
-                            db &&
-                            typeof db ===
-                                'object' &&
-                            typeof db.prefix ===
-                                'string'
+                            db?.settings?.bot?.prefix
                         ) {
 
                             prefix =
-                                db.prefix
+                                db.settings.bot.prefix
                         }
                     }
                 }
@@ -78,16 +77,14 @@ module.exports = {
                 )
             }
 
-            if (
-                !Array.isArray(args)
-            ) {
-                args = []
-            }
-
             const command =
                 args.join(' ')
                     .trim()
                     .toLowerCase()
+
+            //========================================
+            // COMMAND LIST
+            //========================================
 
             const commands = {
 
@@ -209,11 +206,13 @@ module.exports = {
                     'Changes command prefix.'
             }
 
+            //========================================
+            // SINGLE HELP
+            //========================================
+
             if (command) {
 
-                if (
-                    !commands[command]
-                ) {
+                if (!commands[command]) {
 
                     return await sock.sendMessage(
                         from,
@@ -232,7 +231,10 @@ module.exports = {
                     )
                 }
 
-                const singleHelp =
+                return await sock.sendMessage(
+                    from,
+                    {
+                        text:
 `╭━━━〔 📖 COMMAND HELP 〕━━━⬣
 ┃
 ┃ 🔹 Command:
@@ -249,72 +251,31 @@ module.exports = {
 ┃ ${prefix}${command}
 ┃
 ╰━━━━━━━━━━━━━━━━━━⬣`
-
-                return await sock.sendMessage(
-                    from,
-                    {
-                        text:
-                            singleHelp
                     }
                 )
             }
+
+            //========================================
+            // FULL HELP MENU
+            //========================================
 
             const helpText =
 `╭━━━〔 🤖 NOX SPARROW HELP 〕━━━⬣
 ┃
 ┃ 👋 Welcome To Help Menu
 ┃ ⚡ Prefix: ${prefix}
-┃ 📚 Total Commands: 30+
+┃ 📚 Total Commands: ${Object.keys(commands).length}
 ┃
 ┣━━〔 ⚙️ MAIN MENU 〕━━⬣
 ┃ ${prefix}menu
 ┃ ${prefix}help
 ┃ ${prefix}ping
 ┃ ${prefix}alive
-┃ ${prefix}runtime
-┃ ${prefix}uptime
-┃
-┣━━〔 👤 OWNER MENU 〕━━⬣
-┃ ${prefix}owner
-┃ ${prefix}repo
-┃ ${prefix}profile
-┃ ${prefix}setname
-┃ ${prefix}setbio
-┃ ${prefix}setbotdp
-┃ ${prefix}setprefix
 ┃
 ┣━━〔 👥 GROUP MENU 〕━━⬣
 ┃ ${prefix}tagall
-┃ ${prefix}promote
 ┃ ${prefix}kick
 ┃ ${prefix}mute
-┃ ${prefix}nsfw
-┃
-┣━━〔 🔎 SEARCH MENU 〕━━⬣
-┃ ${prefix}weather
-┃ ${prefix}news
-┃ ${prefix}npm
-┃ ${prefix}movie
-┃ ${prefix}anime
-┃ ${prefix}song
-┃ ${prefix}image
-┃ ${prefix}pinterest
-┃
-┣━━〔 📥 DOWNLOAD MENU 〕━━⬣
-┃ ${prefix}play
-┃ ${prefix}video
-┃ ${prefix}apk
-┃ ${prefix}tiktok
-┃ ${prefix}instagram
-┃ ${prefix}facebook
-┃
-┣━━〔 🛠️ TOOLS MENU 〕━━⬣
-┃ ${prefix}sticker
-┃ ${prefix}tourl
-┃ ${prefix}toimg
-┃ ${prefix}shorturl
-┃ ${prefix}translate
-┃ ${prefix}calculate
 ┃
 ┣━━〔 🎭 FUN MENU 〕━━⬣
 ┃ ${prefix}quote
@@ -324,27 +285,28 @@ module.exports = {
 ┃
 ╰━━━━━━━━━━━━━━━━━━⬣
 
-📌 Example:
-${prefix}help ping`
+${settings.footer || ''}
+`
+
+            //========================================
+            // SEND HELP
+            //========================================
 
             try {
 
                 if (
-                    settings &&
-                    typeof settings.botImage ===
-                        'string' &&
-                    settings.botImage.startsWith(
-                        'http'
-                    )
+                    settings.botImage &&
+                    fs.existsSync(settings.botImage)
                 ) {
 
                     await sock.sendMessage(
                         from,
                         {
-                            image: {
-                                url:
+                            image:
+                                fs.readFileSync(
                                     settings.botImage
-                            },
+                                ),
+
                             caption:
                                 helpText
                         }
@@ -383,23 +345,6 @@ ${prefix}help ping`
                 'Help Command Error:',
                 error
             )
-
-            try {
-
-                await sock.sendMessage(
-                    from,
-                    {
-                        text:
-`╭━━━〔 ❌ HELP ERROR 〕━━━⬣
-┃
-┃ Failed to display
-┃ help menu.
-┃
-╰━━━━━━━━━━━━━━━━━━⬣`
-                    }
-                )
-
-            } catch {}
         }
     }
 }
