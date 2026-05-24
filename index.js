@@ -225,10 +225,6 @@ async function createPairSocket(phone) {
 
     try {
 
-        //========================================
-        // RETURN ACTIVE SOCKET
-        //========================================
-
         if (
             sessions.has(phone)
         ) {
@@ -251,10 +247,6 @@ async function createPairSocket(phone) {
             sessions.delete(phone)
         }
 
-        //========================================
-        // SESSION PATH
-        //========================================
-
         const sessionPath =
 
             path.join(
@@ -274,10 +266,6 @@ async function createPairSocket(phone) {
                 }
             )
         }
-
-        //========================================
-        // FIX CORRUPTED SESSION
-        //========================================
 
         if (
             !isSessionValid(sessionPath)
@@ -303,10 +291,6 @@ async function createPairSocket(phone) {
             } catch {}
         }
 
-        //========================================
-        // AUTH STATE
-        //========================================
-
         const {
             state,
             saveCreds
@@ -315,18 +299,10 @@ async function createPairSocket(phone) {
             sessionPath
         )
 
-        //========================================
-        // VERSION
-        //========================================
-
         const {
             version
         } =
         await fetchLatestBaileysVersion()
-
-        //========================================
-        // CREATE SOCKET
-        //========================================
 
         const pairSock =
             makeWASocket({
@@ -373,27 +349,15 @@ async function createPairSocket(phone) {
                     () => false
             })
 
-        //========================================
-        // SAVE CREDS
-        //========================================
-
         pairSock.ev.on(
             'creds.update',
             saveCreds
         )
 
-        //========================================
-        // SAVE SOCKET
-        //========================================
-
         sessions.set(
             phone,
             pairSock
         )
-
-        //========================================
-        // CONNECTION UPDATE
-        //========================================
 
         pairSock.ev.on(
 
@@ -413,7 +377,6 @@ async function createPairSocket(phone) {
                             ?.output
                             ?.statusCode
 
-                    // CONNECTED
                     if (
                         connection === 'open'
                     ) {
@@ -426,7 +389,6 @@ async function createPairSocket(phone) {
                         )
                     }
 
-                    // DISCONNECTED
                     if (
                         connection === 'close'
                     ) {
@@ -438,7 +400,6 @@ async function createPairSocket(phone) {
                             )
                         )
 
-                        // LOGGED OUT
                         if (
                             statusCode ===
                             DisconnectReason.loggedOut
@@ -449,10 +410,8 @@ async function createPairSocket(phone) {
                             return
                         }
 
-                        // REMOVE DEAD SOCKET
                         sessions.delete(phone)
 
-                        // SAFE RECONNECT
                         setTimeout(async () => {
 
                             try {
@@ -503,10 +462,6 @@ async function startBot() {
 
     try {
 
-        //========================================
-        // CLOSE OLD SOCKET
-        //========================================
-
         if (activeSocket) {
 
             try {
@@ -521,15 +476,7 @@ async function startBot() {
             } catch {}
         }
 
-        //========================================
-        // CREATE FOLDERS
-        //========================================
-
         createFolders()
-
-        //========================================
-        // AUTH STATE
-        //========================================
 
         const {
             state,
@@ -538,10 +485,6 @@ async function startBot() {
         await useMultiFileAuthState(
             settings.sessionFolder
         )
-
-        //========================================
-        // FETCH VERSION
-        //========================================
 
         const {
             version
@@ -554,10 +497,6 @@ async function startBot() {
                 `USING VERSION: ${version}`
             )
         )
-
-        //========================================
-        // CREATE SOCKET
-        //========================================
 
         sock = makeWASocket({
 
@@ -606,10 +545,6 @@ async function startBot() {
 
         activeSocket = sock
 
-        //========================================
-        // SAVE CREDS
-        //========================================
-
         sock.ev.on(
             'creds.update',
             saveCreds
@@ -638,7 +573,8 @@ async function startBot() {
                     }
 
                     if (
-                        msg.key?.fromMe
+                        msg.key?.fromMe &&
+                        !settings.selfCommands
                     ) {
                         return
                     }
@@ -667,10 +603,6 @@ async function startBot() {
                                 ''
                               )
                             : from
-
-                    //========================================
-                    // DATABASE
-                    //========================================
 
                     try {
 
@@ -787,7 +719,7 @@ async function startBot() {
                     }
 
                     //========================================
-                    // COMMANDS
+                    // COMMANDS + MENU REPLY SYSTEM
                     //========================================
 
                     try {
@@ -796,6 +728,35 @@ async function startBot() {
                             sock,
                             msg
                         )
+
+                        //========================================
+                        // MENU REPLY HANDLER
+                        //========================================
+
+                        try {
+
+                            const menuCommand =
+                                require('./commands/menu')
+
+                            if (
+                                menuCommand &&
+                                typeof menuCommand.replyHandler ===
+                                    'function'
+                            ) {
+
+                                await menuCommand.replyHandler(
+                                    sock,
+                                    msg
+                                )
+                            }
+
+                        } catch (menuReplyError) {
+
+                            console.log(
+                                'MENU REPLY ERROR:',
+                                menuReplyError
+                            )
+                        }
 
                     } catch (cmdError) {
 
@@ -975,10 +936,6 @@ app.get(
                     ''
                 )
 
-            //========================================
-            // CREATE SOCKET
-            //========================================
-
             const pairSock =
                 await createPairSocket(
                     cleanNumber
@@ -991,10 +948,6 @@ app.get(
                 )
             }
 
-            //========================================
-            // ALREADY CONNECTED
-            //========================================
-
             if (
                 pairSock.user
             ) {
@@ -1004,10 +957,6 @@ app.get(
                 )
             }
 
-            //========================================
-            // WAIT
-            //========================================
-
             await new Promise(resolve =>
 
                 setTimeout(
@@ -1015,10 +964,6 @@ app.get(
                     5000
                 )
             )
-
-            //========================================
-            // GENERATE CODE
-            //========================================
 
             const code =
 
