@@ -224,38 +224,11 @@ module.exports = {
             'https://api.botcahx.eu.org',
 
         openai:
-            'curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent" \
-  -H 'Content-Type: application/json' \
-  -H 'X-goog-api-key: AIzaSyDN8XiRkh0vZtDVVZgYOaiIZXmI1zbMYdk' \
-  -X POST \
-  -d '{
-    "contents": [
-      {
-        "parts": [
-          {
-            "text": "Explain how AI works in a few words"
-          }
-        ]
-      }
-    ]
-  }'respond normal'
+            'https://api.openai.com/v1',
 
         gemini:
-            curl "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent" \
-  -H 'Content-Type: application/json' \
-  -H 'X-goog-api-key: AIzaSyDHTBu3pCUZRQVtIL-gczd8vo1baF1ScQs' \
-  -X POST \
-  -d '{
-    "contents": [
-      {
-        "parts": [
-          {
-            "text": "Explain how AI works in a few words"
-          }
-        ]
-      }
-    ]
-  }'respond normal'
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent'
+    },
 
     //========================================
     // DATABASE SETTINGS
@@ -327,4 +300,4 @@ module.exports = {
 
     enablePairSocket:
         true
-}
+    }
