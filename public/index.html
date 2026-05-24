@@ -95,7 +95,7 @@ color:#00ffee;
 
 font-size:12px;
 
-opacity:0.18;
+opacity:0.15;
 
 font-family:'Orbitron',sans-serif;
 
@@ -168,7 +168,7 @@ z-index:0;
 position:absolute;
 border-radius:50%;
 filter:blur(90px);
-opacity:0.22;
+opacity:0.20;
 animation:float 12s infinite ease-in-out;
 }
 
@@ -842,7 +842,7 @@ MATRIX EFFECT
 const matrix =
 document.querySelector('.matrix')
 
-for(let i = 0; i < 70; i++){
+for(let i = 0; i < 50; i++){
 
 const span =
 document.createElement('span')
@@ -854,7 +854,7 @@ span.style.left =
 Math.random() * 100 + '%'
 
 span.style.animationDuration =
-6 + Math.random() * 8 + 's'
+8 + Math.random() * 6 + 's'
 
 span.style.animationDelay =
 Math.random() * 5 + 's'
@@ -896,13 +896,8 @@ playing = false
 }
 
 /*========================================
-PAIRING CODE
+HELPERS
 ========================================*/
-
-async function generateCode(){
-
-const number =
-document.getElementById('number').value.trim()
 
 const pairCode =
 document.getElementById('pairCode')
@@ -910,21 +905,86 @@ document.getElementById('pairCode')
 const button =
 document.getElementById('generateBtn')
 
-if(!number){
+const input =
+document.getElementById('number')
 
-pairCode.innerHTML =
+function setStatus(text){
+
+pairCode.innerHTML = text
+}
+
+function lockButton(state){
+
+button.disabled = state
+
+button.innerHTML =
+state
+? 'CONNECTING...'
+: 'GENERATE PAIR CODE'
+}
+
+/*========================================
+FORMAT NUMBER
+========================================*/
+
+function formatNumber(number){
+
+number =
+number.replace(/[^0-9]/g,'')
+
+if(
+number.startsWith('0')
+){
+
+number =
+'256' + number.slice(1)
+}
+
+return number
+}
+
+/*========================================
+PAIRING CODE
+========================================*/
+
+async function generateCode(){
+
+let number =
+input.value.trim()
+
+number =
+formatNumber(number)
+
+input.value =
+number
+
+if(
+!number
+){
+
+setStatus(
 'ENTER PHONE NUMBER'
+)
 
 return
 }
 
-pairCode.innerHTML =
-'GENERATING...'
+if(
+number.length < 11
+){
 
-button.innerHTML =
-'CONNECTING...'
+setStatus(
+'INVALID NUMBER'
+)
 
-button.disabled = true
+return
+}
+
+lockButton(true)
+
+setStatus(
+'GENERATING PAIR CODE...'
+)
 
 try{
 
@@ -944,14 +1004,26 @@ code &&
 code !== 'FAILED'
 ){
 
-pairCode.innerHTML =
-code
+if(
+code.includes('CONNECTED')
+){
+
+setStatus(
+'NUMBER ALREADY CONNECTED'
+)
 }
 
 else{
 
-pairCode.innerHTML =
-'FAILED'
+setStatus(code)
+}
+}
+
+else{
+
+setStatus(
+'PAIRING FAILED'
+)
 }
 
 }
@@ -960,15 +1032,27 @@ catch(error){
 
 console.log(error)
 
-pairCode.innerHTML =
+setStatus(
 'SERVER ERROR'
+)
 }
 
-button.innerHTML =
-'GENERATE PAIR CODE'
-
-button.disabled = false
+lockButton(false)
 }
+
+/*========================================
+ENTER KEY
+========================================*/
+
+input.addEventListener(
+'keypress',
+function(e){
+
+if(e.key === 'Enter'){
+
+generateCode()
+}
+})
 
 </script>
 
