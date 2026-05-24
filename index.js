@@ -572,9 +572,13 @@ async function startBot() {
                         return
                     }
 
+                    //========================================
+                    // FIX SELF COMMANDS
+                    //========================================
+
                     if (
                         msg.key?.fromMe &&
-                        !settings.selfCommands
+                        settings.selfCommands !== true
                     ) {
                         return
                     }
@@ -621,10 +625,6 @@ async function startBot() {
                         )
                     }
 
-                    //========================================
-                    // AUTO READ
-                    //========================================
-
                     if (
                         settings.autoRead
                     ) {
@@ -637,10 +637,6 @@ async function startBot() {
 
                         } catch {}
                     }
-
-                    //========================================
-                    // AUTO TYPING
-                    //========================================
 
                     if (
                         settings.autoTyping
@@ -656,10 +652,6 @@ async function startBot() {
                         } catch {}
                     }
 
-                    //========================================
-                    // AUTO RECORDING
-                    //========================================
-
                     if (
                         settings.autoRecording
                     ) {
@@ -673,10 +665,6 @@ async function startBot() {
 
                         } catch {}
                     }
-
-                    //========================================
-                    // AUTO VIEW ONCE
-                    //========================================
 
                     if (
                         settings.antiViewOnce &&
@@ -699,10 +687,6 @@ async function startBot() {
                         }
                     }
 
-                    //========================================
-                    // LISTENERS
-                    //========================================
-
                     try {
 
                         await handleListeners(
@@ -718,45 +702,12 @@ async function startBot() {
                         )
                     }
 
-                    //========================================
-                    // COMMANDS + MENU REPLY SYSTEM
-                    //========================================
-
                     try {
 
                         await handleCommand(
                             sock,
                             msg
                         )
-
-                        //========================================
-                        // MENU REPLY HANDLER
-                        //========================================
-
-                        try {
-
-                            const menuCommand =
-                                require('./commands/menu')
-
-                            if (
-                                menuCommand &&
-                                typeof menuCommand.replyHandler ===
-                                    'function'
-                            ) {
-
-                                await menuCommand.replyHandler(
-                                    sock,
-                                    msg
-                                )
-                            }
-
-                        } catch (menuReplyError) {
-
-                            console.log(
-                                'MENU REPLY ERROR:',
-                                menuReplyError
-                            )
-                        }
 
                     } catch (cmdError) {
 
