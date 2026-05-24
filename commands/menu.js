@@ -38,6 +38,13 @@ const commandFiles =
         )
 
 //========================================
+// MENU STORAGE
+//========================================
+
+global.menuReplies =
+    global.menuReplies || {}
+
+//========================================
 // EXPORT
 //========================================
 
@@ -64,6 +71,10 @@ module.exports = {
         try {
 
             const from =
+                msg.key.remoteJid
+
+            const sender =
+                msg.key.participant ||
                 msg.key.remoteJid
 
             //========================================
@@ -146,7 +157,7 @@ module.exports = {
                     )
 
             //========================================
-            // MENU TEXT
+            // MAIN MENU
             //========================================
 
             const menu = `
@@ -158,51 +169,20 @@ module.exports = {
 ┃ ⏰ Time: ${time}
 ┃ 📦 Commands: ${commandFiles.length}
 ┃
-┣━━〔 ⚙️ MAIN MENU 〕━━⬣
-┃ ${prefix}menu
-┃ ${prefix}ping
-┃ ${prefix}alive
-┃ ${prefix}runtime
-┃ ${prefix}uptime
+┣━━〔 📂 MENU LIST 〕━━⬣
 ┃
-┣━━〔 👤 OWNER MENU 〕━━⬣
-┃ ${prefix}owner
-┃ ${prefix}repo
-┃ ${prefix}setname
-┃ ${prefix}setbio
-┃ ${prefix}setbotdp
+┃ 1️⃣ MAIN MENU
+┃ 2️⃣ OWNER MENU
+┃ 3️⃣ GROUP MENU
+┃ 4️⃣ SEARCH MENU
+┃ 5️⃣ DOWNLOAD MENU
+┃ 6️⃣ TOOLS MENU
+┃ 7️⃣ FUN MENU
 ┃
-┣━━〔 👥 GROUP MENU 〕━━⬣
-┃ ${prefix}tagall
-┃ ${prefix}promote
-┃ ${prefix}mute
-┃ ${prefix}nsfw
+┣━━━━━━━━━━━━━━━━⬣
 ┃
-┣━━〔 🔎 SEARCH MENU 〕━━⬣
-┃ ${prefix}weather
-┃ ${prefix}news
-┃ ${prefix}npm
-┃ ${prefix}movie
-┃ ${prefix}anime
-┃ ${prefix}song
-┃
-┣━━〔 📥 DOWNLOAD MENU 〕━━⬣
-┃ ${prefix}play
-┃ ${prefix}video
-┃ ${prefix}tiktok
-┃ ${prefix}instagram
-┃
-┣━━〔 🛠️ TOOLS MENU 〕━━⬣
-┃ ${prefix}sticker
-┃ ${prefix}tourl
-┃ ${prefix}toimg
-┃ ${prefix}translate
-┃
-┣━━〔 🎭 FUN MENU 〕━━⬣
-┃ ${prefix}quote
-┃ ${prefix}joke
-┃ ${prefix}fact
-┃ ${prefix}ai
+┃ 💬 Reply with number
+┃ Example: 1
 ┃
 ╰━━━━━━━━━━━━━━━━━━⬣
 
@@ -212,8 +192,10 @@ ${settings.channel || ''}
 `
 
             //========================================
-            // SEND IMAGE MENU
+            // SEND MENU
             //========================================
+
+            let sentMessage
 
             if (
                 settings.botImage &&
@@ -222,27 +204,46 @@ ${settings.channel || ''}
                 )
             ) {
 
-                await sock.sendMessage(
-                    from,
-                    {
-                        image:
-                            fs.readFileSync(
-                                settings.botImage
-                            ),
+                sentMessage =
+                    await sock.sendMessage(
+                        from,
+                        {
+                            image:
+                                fs.readFileSync(
+                                    settings.botImage
+                                ),
 
-                        caption:
-                            menu
-                    }
-                )
+                            caption:
+                                menu
+                        }
+                    )
 
             } else {
 
-                await sock.sendMessage(
-                    from,
-                    {
-                        text: menu
-                    }
-                )
+                sentMessage =
+                    await sock.sendMessage(
+                        from,
+                        {
+                            text: menu
+                        }
+                    )
+            }
+
+            //========================================
+            // STORE MENU MESSAGE
+            //========================================
+
+            global.menuReplies[
+                sender
+            ] = {
+
+                key:
+                    sentMessage.key.id,
+
+                time:
+                    Date.now(),
+
+                prefix
             }
 
         } catch (error) {
@@ -266,3 +267,175 @@ ${settings.channel || ''}
         }
     }
 }
+
+//========================================
+// REPLY MENU HANDLER
+//========================================
+
+module.exports.replyHandler =
+    async (
+        sock,
+        msg
+    ) => {
+
+        try {
+
+            const from =
+                msg.key.remoteJid
+
+            const sender =
+                msg.key.participant ||
+                msg.key.remoteJid
+
+            const replyData =
+                global.menuReplies[
+                    sender
+                ]
+
+            if (
+                !replyData
+            ) return
+
+            const quoted =
+                msg.message
+                    ?.extendedTextMessage
+                    ?.contextInfo
+                    ?.stanzaId
+
+            if (
+                quoted !==
+                replyData.key
+            ) return
+
+            const body =
+                msg.message
+                    ?.conversation ||
+
+                msg.message
+                    ?.extendedTextMessage
+                    ?.text ||
+
+                ''
+
+            const text =
+                body.trim()
+
+            const prefix =
+                replyData.prefix
+
+            let response =
+                ''
+
+            //========================================
+            // MENUS
+            //========================================
+
+            if (text === '1') {
+
+                response = `
+╭━━━〔 ⚙️ MAIN MENU 〕━━━⬣
+┃ ${prefix}menu
+┃ ${prefix}ping
+┃ ${prefix}alive
+┃ ${prefix}runtime
+┃ ${prefix}uptime
+╰━━━━━━━━━━━━━━━━━━⬣
+`
+            }
+
+            else if (text === '2') {
+
+                response = `
+╭━━━〔 👤 OWNER MENU 〕━━━⬣
+┃ ${prefix}owner
+┃ ${prefix}repo
+┃ ${prefix}setname
+┃ ${prefix}setbio
+┃ ${prefix}setbotdp
+┃ ${prefix}setprefix
+╰━━━━━━━━━━━━━━━━━━⬣
+`
+            }
+
+            else if (text === '3') {
+
+                response = `
+╭━━━〔 👥 GROUP MENU 〕━━━⬣
+┃ ${prefix}tagall
+┃ ${prefix}promote
+┃ ${prefix}mute
+┃ ${prefix}nsfw
+╰━━━━━━━━━━━━━━━━━━⬣
+`
+            }
+
+            else if (text === '4') {
+
+                response = `
+╭━━━〔 🔎 SEARCH MENU 〕━━━⬣
+┃ ${prefix}weather
+┃ ${prefix}news
+┃ ${prefix}npm
+┃ ${prefix}movie
+┃ ${prefix}anime
+┃ ${prefix}song
+╰━━━━━━━━━━━━━━━━━━⬣
+`
+            }
+
+            else if (text === '5') {
+
+                response = `
+╭━━━〔 📥 DOWNLOAD MENU 〕━━━⬣
+┃ ${prefix}play
+┃ ${prefix}video
+┃ ${prefix}tiktok
+┃ ${prefix}instagram
+╰━━━━━━━━━━━━━━━━━━⬣
+`
+            }
+
+            else if (text === '6') {
+
+                response = `
+╭━━━〔 🛠️ TOOLS MENU 〕━━━⬣
+┃ ${prefix}sticker
+┃ ${prefix}tourl
+┃ ${prefix}toimg
+┃ ${prefix}translate
+╰━━━━━━━━━━━━━━━━━━⬣
+`
+            }
+
+            else if (text === '7') {
+
+                response = `
+╭━━━〔 🎭 FUN MENU 〕━━━⬣
+┃ ${prefix}quote
+┃ ${prefix}joke
+┃ ${prefix}fact
+┃ ${prefix}ai
+╰━━━━━━━━━━━━━━━━━━⬣
+`
+            }
+
+            if (!response) return
+
+            await sock.sendMessage(
+                from,
+                {
+                    text: response
+                },
+                {
+                    quoted: msg
+                }
+            )
+
+        } catch (error) {
+
+            console.log(
+                'MENU REPLY ERROR:',
+                error
+            )
+        }
+    }
