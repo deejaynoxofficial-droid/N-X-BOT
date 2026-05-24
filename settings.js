@@ -65,6 +65,9 @@ module.exports = {
     maintenance:
         false,
 
+    selfCommands:
+        false,
+
     //========================================
     // AUTO FEATURES
     //========================================
@@ -300,4 +303,4 @@ module.exports = {
 
     enablePairSocket:
         true
-    }
+}
