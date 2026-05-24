@@ -16,6 +16,12 @@ const {
 const commands = new Map()
 
 //========================================
+// COOLDOWN STORAGE
+//========================================
+
+const cooldowns = new Map()
+
+//========================================
 // LOAD COMMANDS
 //========================================
 
@@ -25,8 +31,6 @@ const commandsPath =
         __dirname,
         '../commands'
     )
-
-// CREATE COMMAND FOLDER IF MISSING
 
 if (
     !fs.existsSync(commandsPath)
@@ -40,8 +44,6 @@ if (
     )
 }
 
-// READ COMMAND FILES
-
 const commandFiles =
 
     fs.readdirSync(commandsPath)
@@ -50,8 +52,6 @@ const commandFiles =
             file =>
                 file.endsWith('.js')
         )
-
-// LOAD EACH COMMAND
 
 for (const file of commandFiles) {
 
@@ -62,8 +62,6 @@ for (const file of commandFiles) {
             require(
                 `../commands/${file}`
             )
-
-        // VALIDATE COMMAND
 
         if (
             !command ||
@@ -77,8 +75,6 @@ for (const file of commandFiles) {
             continue
         }
 
-        // CHECK NAME
-
         if (
             typeof command.name !==
             'string'
@@ -90,8 +86,6 @@ for (const file of commandFiles) {
 
             continue
         }
-
-        // CHECK EXECUTE
 
         if (
             typeof command.execute !==
@@ -105,14 +99,14 @@ for (const file of commandFiles) {
             continue
         }
 
-        // SAVE COMMAND
-
         commands.set(
             command.name.toLowerCase(),
             command
         )
 
-        // LOAD ALIASES
+        //========================================
+        // ALIASES
+        //========================================
 
         if (
             Array.isArray(
@@ -235,7 +229,7 @@ async function handleCommand(
                 : sender
 
         //========================================
-        // MESSAGE BODY FIX
+        // MESSAGE BODY
         //========================================
 
         const message =
@@ -266,10 +260,6 @@ async function handleCommand(
 
             ''
 
-        //========================================
-        // EMPTY BODY
-        //========================================
-
         if (
             !body ||
             typeof body !== 'string'
@@ -278,14 +268,30 @@ async function handleCommand(
         }
 
         //========================================
-        // PREFIX CHECK
+        // MULTI PREFIX SUPPORT
         //========================================
 
-        if (
-            !body.startsWith(
-                settings.prefix
-            )
-        ) {
+        let usedPrefix = null
+
+        const prefixes =
+
+            settings.multiPrefix
+                ? settings.prefixes
+                : [settings.prefix]
+
+        for (const prefix of prefixes) {
+
+            if (
+                body.startsWith(prefix)
+            ) {
+
+                usedPrefix = prefix
+
+                break
+            }
+        }
+
+        if (!usedPrefix) {
             return
         }
 
@@ -297,7 +303,7 @@ async function handleCommand(
 
             body
                 .slice(
-                    settings.prefix.length
+                    usedPrefix.length
                 )
                 .trim()
                 .split(/ +/)
@@ -318,15 +324,7 @@ async function handleCommand(
         const command =
             commands.get(commandName)
 
-        //========================================
-        // COMMAND NOT FOUND
-        //========================================
-
         if (!command) {
-
-            console.log(
-                `COMMAND NOT FOUND: ${commandName}`
-            )
 
             return
         }
@@ -345,6 +343,36 @@ async function handleCommand(
             isGroup
                 ? getGroup(from)
                 : null
+
+        //========================================
+        // OWNER CHECK
+        //========================================
+
+        const ownerNumbers = [
+
+            settings.ownerNumber,
+
+            ...(settings.ownerNumbers || [])
+        ]
+
+        const isOwner =
+            ownerNumbers.some(
+                num =>
+                    normalizedSender ===
+                    `${num}@s.whatsapp.net`
+            )
+
+        //========================================
+        // PUBLIC / SELF MODE
+        //========================================
+
+        if (
+            settings.publicMode === false &&
+            !isOwner
+        ) {
+
+            return
+        }
 
         //========================================
         // BANNED USER
@@ -369,8 +397,7 @@ async function handleCommand(
 
         if (
             settings.maintenance === true &&
-            normalizedSender !==
-            `${settings.ownerNumber}@s.whatsapp.net`
+            !isOwner
         ) {
 
             return await sock.sendMessage(
@@ -388,8 +415,7 @@ async function handleCommand(
 
         if (
             command.owner === true &&
-            normalizedSender !==
-            `${settings.ownerNumber}@s.whatsapp.net`
+            !isOwner
         ) {
 
             return await sock.sendMessage(
@@ -438,6 +464,77 @@ async function handleCommand(
         }
 
         //========================================
+        // GROUP MUTE
+        //========================================
+
+        if (
+            isGroup &&
+            groupData?.mute === true &&
+            !isOwner
+        ) {
+
+            return
+        }
+
+        //========================================
+        // COOLDOWN SYSTEM
+        //========================================
+
+        if (
+            settings.enableCooldown &&
+            !isOwner
+        ) {
+
+            const cooldownKey =
+                `${normalizedSender}_${commandName}`
+
+            const cooldown =
+                cooldowns.get(cooldownKey)
+
+            const now =
+                Date.now()
+
+            const cooldownTime =
+                (
+                    settings.cooldown || 3
+                ) * 1000
+
+            if (
+                cooldown &&
+                now - cooldown < cooldownTime
+            ) {
+
+                const remaining =
+
+                    (
+                        cooldownTime -
+                        (now - cooldown)
+                    ) / 1000
+
+                return await sock.sendMessage(
+                    from,
+                    {
+                        text:
+`⏳ Please wait ${remaining.toFixed(1)} seconds before using this command again.`
+                    }
+                )
+            }
+
+            cooldowns.set(
+                cooldownKey,
+                now
+            )
+
+            setTimeout(() => {
+
+                cooldowns.delete(
+                    cooldownKey
+                )
+
+            }, cooldownTime)
+        }
+
+        //========================================
         // REACTION
         //========================================
 
@@ -478,7 +575,10 @@ async function handleCommand(
                 groupData,
                 isGroup,
                 sender:
-                    normalizedSender
+                    normalizedSender,
+                isOwner,
+                prefix:
+                    usedPrefix
             }
         )
 
