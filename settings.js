@@ -16,10 +16,10 @@ module.exports = {
         'NOX STAR.B',
 
     ownerNumber:
-        '256700000000',
+        '256745720308',
 
     ownerNumbers: [
-        '256700000000'
+        '256748752152'
     ],
 
     ownerEmoji:
@@ -265,5 +265,39 @@ module.exports = {
     //========================================
 
     timezone:
-        'Africa/Kampala'
+        'Africa/Kampala',
+
+    //========================================
+    // SOCKET MANAGER SETTINGS
+    //========================================
+
+    reconnectDelay:
+        5000,
+
+    cleanupInterval:
+        600000,
+
+    pairingTimeout:
+        30000,
+
+    maxPairSessions:
+        100,
+
+    socketKeepAlive:
+        10000,
+
+    connectTimeout:
+        60000,
+
+    queryTimeout:
+        60000,
+
+    maxReconnectAttempts:
+        20,
+
+    autoSessionCleanup:
+        true,
+
+    enablePairSocket:
+        true
 }
