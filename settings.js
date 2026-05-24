@@ -15,9 +15,11 @@ module.exports = {
     ownerName:
         'NOX STAR.B',
 
+    // MAIN OWNER
     ownerNumber:
-        '256745720308',
+        '256748752152',
 
+    // EXTRA OWNERS
     ownerNumbers: [
         '256748752152'
     ],
@@ -37,13 +39,6 @@ module.exports = {
 
     prefix:
         '.',
-
-    multiPrefix:
-        false,
-
-    prefixes: [
-        '.'
-    ],
 
     //========================================
     // SESSION SETTINGS
@@ -65,6 +60,7 @@ module.exports = {
     maintenance:
         false,
 
+    // IMPORTANT FOR OWNER COMMANDS
     selfCommands:
         true,
 
@@ -76,7 +72,7 @@ module.exports = {
         true,
 
     commandReaction:
-        true,
+        false,
 
     commandLogs:
         true,
@@ -97,9 +93,6 @@ module.exports = {
     menuEmoji:
         true,
 
-    menuImage:
-        true,
-
     menuReply:
         true,
 
@@ -110,14 +103,15 @@ module.exports = {
     autoRead:
         false,
 
+    // SAFER
     autoTyping:
-        true,
+        false,
 
     autoRecording:
         false,
 
     autoStatusView:
-        true,
+        false,
 
     autoSticker:
         false,
@@ -129,7 +123,7 @@ module.exports = {
         false,
 
     //========================================
-    // GROUP DEFAULT SETTINGS
+    // GROUP SETTINGS
     //========================================
 
     welcome:
@@ -145,10 +139,11 @@ module.exports = {
         false,
 
     antiDelete:
-        true,
+        false,
 
+    // DISABLE UNTIL STABLE
     antiViewOnce:
-        true,
+        false,
 
     antiSpam:
         false,
@@ -157,7 +152,7 @@ module.exports = {
         false,
 
     antiCall:
-        true,
+        false,
 
     nsfw:
         false,
@@ -176,32 +171,6 @@ module.exports = {
         true,
 
     antiCommandSpam:
-        true,
-
-    //========================================
-    // MULTI USER SETTINGS
-    //========================================
-
-    multiUser:
-        true,
-
-    savePairSessions:
-        true,
-
-    pairCodeByReply:
-        true,
-
-    //========================================
-    // SPAM SETTINGS
-    //========================================
-
-    spamLimit:
-        5,
-
-    spamCooldown:
-        10,
-
-    enableCooldown:
         true,
 
     //========================================
@@ -288,13 +257,7 @@ module.exports = {
             'https://api.lolhuman.xyz',
 
         botcahx:
-            'https://api.botcahx.eu.org',
-
-        openai:
-            'https://api.openai.com/v1',
-
-        gemini:
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent'
+            'https://api.botcahx.eu.org'
     },
 
     //========================================
@@ -321,13 +284,6 @@ module.exports = {
         './logs',
 
     //========================================
-    // CHANNEL
-    //========================================
-
-    channel:
-        'https://whatsapp.com/channel/0029VbCnWMi2ZjCgC3ISe73b',
-
-    //========================================
     // TIMEZONE
     //========================================
 
@@ -335,7 +291,7 @@ module.exports = {
         'Africa/Kampala',
 
     //========================================
-    // SOCKET MANAGER SETTINGS
+    // SOCKET SETTINGS
     //========================================
 
     reconnectDelay:
