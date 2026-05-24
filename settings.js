@@ -66,7 +66,7 @@ module.exports = {
         false,
 
     selfCommands:
-        false,
+        true,
 
     //========================================
     // COMMAND SETTINGS
