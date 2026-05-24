@@ -45,6 +45,39 @@ global.menuReplies =
     global.menuReplies || {}
 
 //========================================
+// CLEAN EXPIRED MENUS
+//========================================
+
+setInterval(() => {
+
+    try {
+
+        const now =
+            Date.now()
+
+        Object.keys(
+            global.menuReplies
+        ).forEach(key => {
+
+            const data =
+                global.menuReplies[key]
+
+            if (
+                !data ||
+                now - data.time >
+                300000
+            ) {
+
+                delete global
+                    .menuReplies[key]
+            }
+        })
+
+    } catch {}
+
+}, 60000)
+
+//========================================
 // EXPORT
 //========================================
 
@@ -73,9 +106,18 @@ module.exports = {
             const from =
                 msg.key.remoteJid
 
+            if (!from) {
+                return
+            }
+
             const sender =
-                msg.key.participant ||
-                msg.key.remoteJid
+
+                (
+                    msg.key.participant ||
+                    msg.key.remoteJid
+                )
+
+                    .split(':')[0]
 
             //========================================
             // PREFIX
@@ -106,11 +148,14 @@ module.exports = {
                             JSON.parse(raw)
 
                         if (
-                            db?.prefix
+                            db?.settings?.bot
+                                ?.prefix
                         ) {
 
                             prefix =
-                                db.prefix
+                                db.settings
+                                    .bot
+                                    .prefix
                         }
                     }
                 }
@@ -265,27 +310,34 @@ ${settings.channel || ''}
 
             } catch {}
         }
-    }
-}
+    },
 
-//========================================
-// REPLY MENU HANDLER
-//========================================
+    //========================================
+    // REPLY HANDLER
+    //========================================
 
-module.exports.replyHandler =
-    async (
+    async replyHandler(
         sock,
         msg
-    ) => {
+    ) {
 
         try {
 
             const from =
                 msg.key.remoteJid
 
+            if (!from) {
+                return
+            }
+
             const sender =
-                msg.key.participant ||
-                msg.key.remoteJid
+
+                (
+                    msg.key.participant ||
+                    msg.key.remoteJid
+                )
+
+                    .split(':')[0]
 
             const replyData =
                 global.menuReplies[
@@ -303,11 +355,13 @@ module.exports.replyHandler =
                     ?.stanzaId
 
             if (
+                !quoted ||
                 quoted !==
                 replyData.key
             ) return
 
             const body =
+
                 msg.message
                     ?.conversation ||
 
@@ -316,6 +370,12 @@ module.exports.replyHandler =
                     ?.text ||
 
                 ''
+
+            if (
+                !body ||
+                typeof body !==
+                    'string'
+            ) return
 
             const text =
                 body.trim()
@@ -419,7 +479,9 @@ module.exports.replyHandler =
 `
             }
 
-            if (!response) return
+            if (!response) {
+                return
+            }
 
             await sock.sendMessage(
                 from,
@@ -439,3 +501,4 @@ module.exports.replyHandler =
             )
         }
     }
+}
