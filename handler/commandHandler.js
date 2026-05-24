@@ -1,13 +1,7 @@
 const fs = require('fs')
-
 const path = require('path')
-
 const settings = require('../settings')
-
-const {
-    getUser,
-    getGroup
-} = require('../database/database')
+const { getUser, getGroup } = require('../database/database')
 
 //========================================
 // COMMAND STORAGE
@@ -16,343 +10,174 @@ const {
 const commands = new Map()
 
 //========================================
-// LOAD COMMANDS
+// PATH
 //========================================
 
-const commandsPath =
+const commandsPath = path.join(__dirname, '../commands')
 
-    path.join(
-        __dirname,
-        '../commands'
-    )
+//========================================
+// SAFE FOLDER CHECK
+//========================================
 
-if (
-    !fs.existsSync(commandsPath)
-) {
-
-    fs.mkdirSync(
-        commandsPath,
-        {
-            recursive: true
-        }
-    )
+if (!fs.existsSync(commandsPath)) {
+    fs.mkdirSync(commandsPath, { recursive: true })
 }
 
-const commandFiles =
+//========================================
+// LOAD COMMANDS SAFELY
+//========================================
 
-    fs.readdirSync(commandsPath)
+function loadCommands() {
 
-        .filter(
-            file =>
-                file.endsWith('.js')
-        )
+    commands.clear()
 
-for (const file of commandFiles) {
+    let files = []
 
     try {
+        files = fs.readdirSync(commandsPath)
+    } catch (err) {
+        console.log('COMMAND FOLDER ERROR:', err)
+        return
+    }
 
-        const command =
+    for (const file of files) {
 
-            require(
-                `../commands/${file}`
-            )
+        if (!file.endsWith('.js')) continue
 
-        if (
-            !command ||
-            typeof command !== 'object'
-        ) {
+        try {
 
-            console.log(
-                `INVALID COMMAND: ${file}`
-            )
+            const cmd = require(path.join(commandsPath, file))
 
-            continue
-        }
+            if (!cmd || typeof cmd !== 'object') {
+                console.log(`❌ Invalid command: ${file}`)
+                continue
+            }
 
-        if (
-            typeof command.name !==
-            'string'
-        ) {
+            if (typeof cmd.name !== 'string') {
+                console.log(`❌ Missing name: ${file}`)
+                continue
+            }
 
-            console.log(
-                `MISSING NAME: ${file}`
-            )
+            if (typeof cmd.execute !== 'function') {
+                console.log(`❌ Missing execute: ${file}`)
+                continue
+            }
 
-            continue
-        }
+            const name = cmd.name.toLowerCase()
 
-        if (
-            typeof command.execute !==
-            'function'
-        ) {
+            commands.set(name, cmd)
 
-            console.log(
-                `MISSING EXECUTE: ${file}`
-            )
+            // aliases
+            if (Array.isArray(cmd.aliases)) {
 
-            continue
-        }
+                for (const alias of cmd.aliases) {
 
-        commands.set(
-            command.name.toLowerCase(),
-            command
-        )
-
-        if (
-            Array.isArray(
-                command.aliases
-            )
-        ) {
-
-            for (const alias of command.aliases) {
-
-                if (
-                    typeof alias ===
-                    'string'
-                ) {
-
-                    commands.set(
-                        alias.toLowerCase(),
-                        command
-                    )
+                    if (typeof alias === 'string') {
+                        commands.set(alias.toLowerCase(), cmd)
+                    }
                 }
             }
+
+            console.log(`✅ Loaded: ${cmd.name}`)
+
+        } catch (err) {
+            console.log(`❌ Failed loading ${file}`)
+            console.log(err)
         }
-
-        console.log(
-            `LOADED COMMAND: ${command.name}`
-        )
-
-    } catch (loadError) {
-
-        console.log(
-            `FAILED TO LOAD: ${file}`
-        )
-
-        console.log(loadError)
     }
+
+    console.log(`📦 TOTAL COMMANDS: ${commands.size}`)
 }
 
-//========================================
-// TOTAL COMMANDS
-//========================================
-
-console.log(
-    `TOTAL COMMANDS LOADED: ${commands.size}`
-)
+// initial load
+loadCommands()
 
 //========================================
 // HANDLE COMMANDS
 //========================================
 
-async function handleCommand(
-    sock,
-    msg
-) {
+async function handleCommand(sock, msg) {
 
     try {
 
-        if (
-            !sock ||
-            typeof sock.sendMessage !==
-            'function'
-        ) {
-            return
-        }
+        if (!sock || !msg?.message) return
 
-        if (
-            !msg ||
-            !msg.message
-        ) {
-            return
-        }
+        const from = msg.key?.remoteJid
+        if (!from) return
 
-        const from =
-            msg.key?.remoteJid
+        const isGroup = from.endsWith('@g.us')
 
-        if (!from) {
-            return
-        }
+        const sender = isGroup
+            ? (msg.key?.participant || '')
+            : from
 
-        const isGroup =
-            from.endsWith('@g.us')
-
-        const sender =
-
-            isGroup
-
-                ? (
-                    msg.key?.participant ||
-                    msg.participant ||
-                    ''
-                  )
-
-                : from
-
-        if (!sender) {
-            return
-        }
-
-        const normalizedSender =
-
-            sender.includes(':')
-
-                ? sender.split(':')[0] +
-                  '@s.whatsapp.net'
-
-                : sender
+        const normalizedSender = sender.includes(':')
+            ? sender.split(':')[0] + '@s.whatsapp.net'
+            : sender
 
         //========================================
-        // MESSAGE BODY
+        // MESSAGE TEXT
         //========================================
 
-        const message =
-            msg.message || {}
+        const message = msg.message
 
         const body =
-
             message?.conversation ||
-
-            message?.extendedTextMessage
-                ?.text ||
-
-            message?.imageMessage
-                ?.caption ||
-
-            message?.videoMessage
-                ?.caption ||
-
-            message?.buttonsResponseMessage
-                ?.selectedButtonId ||
-
-            message?.listResponseMessage
-                ?.singleSelectReply
-                ?.selectedRowId ||
-
-            message?.templateButtonReplyMessage
-                ?.selectedId ||
-
-            message?.interactiveResponseMessage
-                ?.body?.text ||
-
-            message?.interactiveResponseMessage
-                ?.nativeFlowResponseMessage
-                ?.paramsJson ||
-
-            message?.documentMessage
-                ?.caption ||
-
-            message?.documentWithCaptionMessage
-                ?.message
-                ?.documentMessage
-                ?.caption ||
-
+            message?.extendedTextMessage?.text ||
+            message?.imageMessage?.caption ||
+            message?.videoMessage?.caption ||
+            message?.buttonsResponseMessage?.selectedButtonId ||
+            message?.listResponseMessage?.singleSelectReply?.selectedRowId ||
+            message?.templateButtonReplyMessage?.selectedId ||
             ''
 
-        //========================================
-        // INVALID BODY
-        //========================================
+        if (!body || typeof body !== 'string') return
 
-        if (
-            typeof body !== 'string'
-        ) {
-            return
-        }
+        const prefix = settings.prefix || '.'
 
-        const cleanBody =
-            body.trim()
+        if (!body.startsWith(prefix)) return
 
-        if (
-            !cleanBody.startsWith(
-                settings.prefix
-            )
-        ) {
-            return
-        }
+        const args = body.slice(prefix.length).trim().split(/\s+/)
 
-        //========================================
-        // PARSE COMMAND
-        //========================================
+        const commandName = args.shift()?.toLowerCase()
 
-        const args =
+        if (!commandName) return
 
-            cleanBody
-                .slice(
-                    settings.prefix.length
-                )
-                .trim()
-                .split(/ +/)
-
-        const commandName =
-
-            args.shift()
-                ?.toLowerCase() || ''
-
-        if (!commandName) {
-            return
-        }
-
-        const command =
-            commands.get(commandName)
+        const command = commands.get(commandName)
 
         if (!command) {
-
-            console.log(
-                `COMMAND NOT FOUND: ${commandName}`
-            )
-
+            console.log(`❌ Unknown command: ${commandName}`)
             return
         }
 
         //========================================
-        // DATABASE
+        // DATABASE SAFE
         //========================================
 
-        const userData =
-            getUser(
-                normalizedSender
-            )
-
-        const groupData =
-
-            isGroup
-                ? getGroup(from)
-                : null
+        const userData = getUser(normalizedSender)
+        const groupData = isGroup ? getGroup(from) : null
 
         //========================================
-        // BANNED
+        // BLOCKED USER
         //========================================
 
-        if (
-            userData?.banned === true
-        ) {
-
-            return await sock.sendMessage(
-                from,
-                {
-                    text:
-                        '❌ You are banned from using the bot.'
-                }
-            )
+        if (userData?.banned) {
+            return sock.sendMessage(from, {
+                text: '❌ You are banned.'
+            })
         }
 
         //========================================
-        // MAINTENANCE
+        // MAINTENANCE MODE
         //========================================
 
         if (
-            settings.maintenance === true &&
-            normalizedSender !==
-            `${settings.ownerNumber}@s.whatsapp.net`
+            settings.maintenance &&
+            normalizedSender !== `${settings.ownerNumber}@s.whatsapp.net`
         ) {
-
-            return await sock.sendMessage(
-                from,
-                {
-                    text:
-                        '🚧 Bot is under maintenance.'
-                }
-            )
+            return sock.sendMessage(from, {
+                text: '🚧 Bot under maintenance.'
+            })
         }
 
         //========================================
@@ -360,108 +185,52 @@ async function handleCommand(
         //========================================
 
         if (
-            command.owner === true &&
-            normalizedSender !==
-            `${settings.ownerNumber}@s.whatsapp.net`
+            command.owner &&
+            normalizedSender !== `${settings.ownerNumber}@s.whatsapp.net`
         ) {
-
-            return await sock.sendMessage(
-                from,
-                {
-                    text:
-                        '❌ Owner only command.'
-                }
-            )
+            return sock.sendMessage(from, {
+                text: '❌ Owner only command.'
+            })
         }
 
         //========================================
         // GROUP ONLY
         //========================================
 
-        if (
-            command.group === true &&
-            !isGroup
-        ) {
-
-            return await sock.sendMessage(
-                from,
-                {
-                    text:
-                        '❌ Group only command.'
-                }
-            )
+        if (command.group && !isGroup) {
+            return sock.sendMessage(from, {
+                text: '❌ Group only command.'
+            })
         }
 
         //========================================
         // PRIVATE ONLY
         //========================================
 
-        if (
-            command.private === true &&
-            isGroup
-        ) {
-
-            return await sock.sendMessage(
-                from,
-                {
-                    text:
-                        '❌ Private only command.'
-                }
-            )
+        if (command.private && isGroup) {
+            return sock.sendMessage(from, {
+                text: '❌ Private only command.'
+            })
         }
 
         //========================================
-        // REACTION
+        // EXECUTE SAFELY
         //========================================
 
-        if (
-            settings.reactEmoji
-        ) {
+        console.log(`▶ EXECUTING: ${commandName}`)
 
-            try {
-
-                await sock.sendMessage(
-                    from,
-                    {
-                        react: {
-                            text:
-                                settings.reactEmoji,
-                            key: msg.key
-                        }
-                    }
-                )
-
-            } catch {}
-        }
-
-        //========================================
-        // EXECUTE
-        //========================================
-
-        console.log(
-            `EXECUTING: ${commandName}`
-        )
-
-        await command.execute(
-            sock,
-            msg,
-            args,
-            {
+        await Promise.resolve(
+            command.execute(sock, msg, args, {
                 userData,
                 groupData,
                 isGroup,
-                sender:
-                    normalizedSender
-            }
+                sender: normalizedSender
+            })
         )
 
-    } catch (error) {
-
-        console.log(
-            'HANDLE COMMAND ERROR:'
-        )
-
-        console.log(error)
+    } catch (err) {
+        console.log('❌ COMMAND HANDLER ERROR:')
+        console.log(err)
     }
 }
 
@@ -470,8 +239,7 @@ async function handleCommand(
 //========================================
 
 module.exports = {
-
     handleCommand,
-
+    reloadCommands: loadCommands,
     commands
 }
