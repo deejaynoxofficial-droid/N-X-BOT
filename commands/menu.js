@@ -1,84 +1,123 @@
 const fs = require('fs')
-
 const path = require('path')
-
 const moment = require('moment-timezone')
-
-const settings =
-    require('../settings')
+const settings = require('../settings')
 
 //========================================
-// DATABASE PATH
+// PATHS
 //========================================
 
-const dbPath =
+const dbPath = path.join(
+    __dirname,
+    '../database/database.json'
+)
 
-    path.join(
-        __dirname,
-        '../database/database.json'
-    )
+const commandsPath = path.join(
+    __dirname,
+    '../commands'
+)
 
 //========================================
-// COMMAND COUNT
+// SAFE COMMAND COUNT
 //========================================
 
-const commandsPath =
+let commandFiles = []
 
-    path.join(
-        __dirname,
-        '../commands'
-    )
+try {
 
-const commandFiles =
+    if (fs.existsSync(commandsPath)) {
 
-    fs.readdirSync(commandsPath)
-        .filter(
-            file =>
+        commandFiles = fs
+            .readdirSync(commandsPath)
+            .filter(file =>
                 file.endsWith('.js')
-        )
+            )
+    }
+
+} catch {
+
+    commandFiles = []
+}
 
 //========================================
-// MENU STORAGE
+// GLOBAL STORAGE
 //========================================
 
 global.menuReplies =
     global.menuReplies || {}
 
 //========================================
-// CLEAN EXPIRED MENUS
+// AUTO CLEANUP
 //========================================
 
 setInterval(() => {
 
     try {
 
-        const now =
-            Date.now()
+        const now = Date.now()
 
-        Object.keys(
-            global.menuReplies
-        ).forEach(key => {
+        Object.keys(global.menuReplies)
+            .forEach(key => {
 
-            const data =
-                global.menuReplies[key]
+                const data =
+                    global.menuReplies[key]
 
-            if (
-                !data ||
-                now - data.time >
-                300000
-            ) {
+                if (
+                    !data ||
+                    now - data.time >
+                    300000
+                ) {
 
-                delete global
-                    .menuReplies[key]
-            }
-        })
+                    delete global
+                        .menuReplies[key]
+                }
+            })
 
     } catch {}
-
 }, 60000)
 
 //========================================
-// EXPORT
+// GET PREFIX
+//========================================
+
+function getPrefix() {
+
+    try {
+
+        if (
+            fs.existsSync(dbPath)
+        ) {
+
+            const raw =
+                fs.readFileSync(
+                    dbPath,
+                    'utf8'
+                )
+
+            if (
+                raw &&
+                raw.trim() !== ''
+            ) {
+
+                const db =
+                    JSON.parse(raw)
+
+                return (
+                    db?.settings?.bot
+                        ?.prefix ||
+                    settings.prefix ||
+                    '.'
+                )
+            }
+        }
+
+    } catch {}
+
+    return settings.prefix || '.'
+}
+
+//========================================
+// MENU EXPORT
 //========================================
 
 module.exports = {
@@ -95,115 +134,54 @@ module.exports = {
     description:
         'Show bot menu',
 
+    //========================================
+    // EXECUTE
+    //========================================
+
     async execute(
         sock,
-        msg,
-        args
+        msg
     ) {
 
         try {
 
             const from =
-                msg.key.remoteJid
+                msg.key?.remoteJid
 
-            if (!from) {
-                return
-            }
+            if (!from) return
 
-            const sender =
+            const sender = (
+                msg.key?.participant ||
+                msg.key?.remoteJid ||
+                ''
+            ).split(':')[0]
 
-                (
-                    msg.key.participant ||
-                    msg.key.remoteJid
-                )
-
-                    .split(':')[0]
-
-            //========================================
-            // PREFIX
-            //========================================
-
-            let prefix =
-                settings.prefix || '.'
-
-            try {
-
-                if (
-                    fs.existsSync(dbPath)
-                ) {
-
-                    const raw =
-
-                        fs.readFileSync(
-                            dbPath,
-                            'utf8'
-                        )
-
-                    if (
-                        raw &&
-                        raw.trim() !== ''
-                    ) {
-
-                        const db =
-                            JSON.parse(raw)
-
-                        if (
-                            db?.settings?.bot
-                                ?.prefix
-                        ) {
-
-                            prefix =
-                                db.settings
-                                    .bot
-                                    .prefix
-                        }
-                    }
-                }
-
-            } catch {}
-
-            //========================================
-            // USERNAME
-            //========================================
+            const prefix =
+                getPrefix()
 
             const pushName =
-
                 msg.pushName ||
                 'User'
 
-            //========================================
-            // TIME
-            //========================================
-
             const date =
-
                 moment()
-
                     .tz(
                         settings.timezone ||
                         'Africa/Kampala'
                     )
-
                     .format(
                         'DD/MM/YYYY'
                     )
 
             const time =
-
                 moment()
-
                     .tz(
                         settings.timezone ||
                         'Africa/Kampala'
                     )
-
                     .format(
                         'HH:mm:ss'
                     )
-
-            //========================================
-            // MAIN MENU
-            //========================================
 
             const menu = `
 ╭━━━〔 🤖 NOX SPARROW BOT 〕━━━⬣
@@ -232,15 +210,13 @@ module.exports = {
 ╰━━━━━━━━━━━━━━━━━━⬣
 
 ${settings.footer || ''}
-
-${settings.channel || ''}
 `
 
-            //========================================
-            // SEND MENU
-            //========================================
-
             let sentMessage
+
+            //========================================
+            // IMAGE MENU
+            //========================================
 
             if (
                 settings.botImage &&
@@ -275,7 +251,7 @@ ${settings.channel || ''}
             }
 
             //========================================
-            // STORE MENU MESSAGE
+            // STORE REPLY DATA
             //========================================
 
             global.menuReplies[
@@ -283,7 +259,7 @@ ${settings.channel || ''}
             ] = {
 
                 key:
-                    sentMessage.key.id,
+                    sentMessage?.key?.id,
 
                 time:
                     Date.now(),
@@ -324,29 +300,24 @@ ${settings.channel || ''}
         try {
 
             const from =
-                msg.key.remoteJid
+                msg.key?.remoteJid
 
-            if (!from) {
-                return
-            }
+            if (!from) return
 
-            const sender =
-
-                (
-                    msg.key.participant ||
-                    msg.key.remoteJid
-                )
-
-                    .split(':')[0]
+            const sender = (
+                msg.key?.participant ||
+                msg.key?.remoteJid ||
+                ''
+            ).split(':')[0]
 
             const replyData =
                 global.menuReplies[
                     sender
                 ]
 
-            if (
-                !replyData
-            ) return
+            if (!replyData) {
+                return
+            }
 
             const quoted =
                 msg.message
@@ -358,7 +329,9 @@ ${settings.channel || ''}
                 !quoted ||
                 quoted !==
                 replyData.key
-            ) return
+            ) {
+                return
+            }
 
             const body =
 
@@ -371,11 +344,9 @@ ${settings.channel || ''}
 
                 ''
 
-            if (
-                !body ||
-                typeof body !==
-                    'string'
-            ) return
+            if (!body) {
+                return
+            }
 
             const text =
                 body.trim()
@@ -383,16 +354,9 @@ ${settings.channel || ''}
             const prefix =
                 replyData.prefix
 
-            let response =
-                ''
+            const menus = {
 
-            //========================================
-            // MENUS
-            //========================================
-
-            if (text === '1') {
-
-                response = `
+                '1': `
 ╭━━━〔 ⚙️ MAIN MENU 〕━━━⬣
 ┃ ${prefix}menu
 ┃ ${prefix}ping
@@ -400,12 +364,9 @@ ${settings.channel || ''}
 ┃ ${prefix}runtime
 ┃ ${prefix}uptime
 ╰━━━━━━━━━━━━━━━━━━⬣
-`
-            }
+`,
 
-            else if (text === '2') {
-
-                response = `
+                '2': `
 ╭━━━〔 👤 OWNER MENU 〕━━━⬣
 ┃ ${prefix}owner
 ┃ ${prefix}repo
@@ -414,24 +375,18 @@ ${settings.channel || ''}
 ┃ ${prefix}setbotdp
 ┃ ${prefix}setprefix
 ╰━━━━━━━━━━━━━━━━━━⬣
-`
-            }
+`,
 
-            else if (text === '3') {
-
-                response = `
+                '3': `
 ╭━━━〔 👥 GROUP MENU 〕━━━⬣
 ┃ ${prefix}tagall
 ┃ ${prefix}promote
 ┃ ${prefix}mute
 ┃ ${prefix}nsfw
 ╰━━━━━━━━━━━━━━━━━━⬣
-`
-            }
+`,
 
-            else if (text === '4') {
-
-                response = `
+                '4': `
 ╭━━━〔 🔎 SEARCH MENU 〕━━━⬣
 ┃ ${prefix}weather
 ┃ ${prefix}news
@@ -440,36 +395,27 @@ ${settings.channel || ''}
 ┃ ${prefix}anime
 ┃ ${prefix}song
 ╰━━━━━━━━━━━━━━━━━━⬣
-`
-            }
+`,
 
-            else if (text === '5') {
-
-                response = `
+                '5': `
 ╭━━━〔 📥 DOWNLOAD MENU 〕━━━⬣
 ┃ ${prefix}play
 ┃ ${prefix}video
 ┃ ${prefix}tiktok
 ┃ ${prefix}instagram
 ╰━━━━━━━━━━━━━━━━━━⬣
-`
-            }
+`,
 
-            else if (text === '6') {
-
-                response = `
+                '6': `
 ╭━━━〔 🛠️ TOOLS MENU 〕━━━⬣
 ┃ ${prefix}sticker
 ┃ ${prefix}tourl
 ┃ ${prefix}toimg
 ┃ ${prefix}translate
 ╰━━━━━━━━━━━━━━━━━━⬣
-`
-            }
+`,
 
-            else if (text === '7') {
-
-                response = `
+                '7': `
 ╭━━━〔 🎭 FUN MENU 〕━━━⬣
 ┃ ${prefix}quote
 ┃ ${prefix}joke
@@ -478,6 +424,9 @@ ${settings.channel || ''}
 ╰━━━━━━━━━━━━━━━━━━⬣
 `
             }
+
+            const response =
+                menus[text]
 
             if (!response) {
                 return
