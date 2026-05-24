@@ -1,88 +1,153 @@
 const fs = require('fs')
+
 const path = require('path')
+
 const moment = require('moment-timezone')
 
-let settings = {}
+const settings =
+    require('../settings')
 
-try {
+//========================================
+// DATABASE PATH
+//========================================
 
-    settings = require('../settings')
+const dbPath =
 
-} catch {
+    path.join(
+        __dirname,
+        '../database/database.json'
+    )
 
-    settings = {}
-}
+//========================================
+// COMMAND COUNT
+//========================================
 
-const dbPath = path.join(__dirname, '../database/database.json')
+const commandsPath =
 
-const commandFiles = fs.readdirSync(__dirname)
-    .filter(file => file.endsWith('.js'))
+    path.join(
+        __dirname,
+        '../commands'
+    )
+
+const commandFiles =
+
+    fs.readdirSync(commandsPath)
+        .filter(
+            file =>
+                file.endsWith('.js')
+        )
+
+//========================================
+// EXPORT
+//========================================
 
 module.exports = {
+
     name: 'menu',
 
-    async execute(sock, msg) {
+    aliases: [
+        'help',
+        'allmenu'
+    ],
 
-        const from = msg.key.remoteJid
+    category: 'main',
+
+    description:
+        'Show bot menu',
+
+    async execute(
+        sock,
+        msg,
+        args
+    ) {
 
         try {
 
-            let prefix = '.'
+            const from =
+                msg.key.remoteJid
+
+            //========================================
+            // PREFIX
+            //========================================
+
+            let prefix =
+                settings.prefix || '.'
 
             try {
 
-                if (fs.existsSync(dbPath)) {
+                if (
+                    fs.existsSync(dbPath)
+                ) {
 
-                    const raw = fs.readFileSync(
-                        dbPath,
-                        'utf8'
-                    )
+                    const raw =
 
-                    if (raw && raw.trim() !== '') {
+                        fs.readFileSync(
+                            dbPath,
+                            'utf8'
+                        )
 
-                        const db = JSON.parse(raw)
+                    if (
+                        raw &&
+                        raw.trim() !== ''
+                    ) {
+
+                        const db =
+                            JSON.parse(raw)
 
                         if (
-                            db &&
-                            typeof db === 'object' &&
-                            typeof db.prefix === 'string'
+                            db?.prefix
                         ) {
-                            prefix = db.prefix
+
+                            prefix =
+                                db.prefix
                         }
                     }
                 }
 
-            } catch (dbError) {
+            } catch {}
 
-                console.log(
-                    'Database Read Error:',
-                    dbError
-                )
-            }
+            //========================================
+            // USERNAME
+            //========================================
 
             const pushName =
-                typeof msg.pushName === 'string' &&
-                msg.pushName.trim() !== ''
-                    ? msg.pushName
-                    : 'User'
 
-            const date = moment()
-                .tz(settings.timezone || 'Africa/Kampala')
-                .format('DD/MM/YYYY')
+                msg.pushName ||
+                'User'
 
-            const time = moment()
-                .tz(settings.timezone || 'Africa/Kampala')
-                .format('HH:mm:ss')
+            //========================================
+            // TIME
+            //========================================
 
-            const footer =
-                typeof settings.footer === 'string'
-                    ? settings.footer
-                    : ''
+            const date =
 
-            const channel =
-                typeof settings.channel === 'string'
-                    ? settings.channel
-                    : ''
+                moment()
+
+                    .tz(
+                        settings.timezone ||
+                        'Africa/Kampala'
+                    )
+
+                    .format(
+                        'DD/MM/YYYY'
+                    )
+
+            const time =
+
+                moment()
+
+                    .tz(
+                        settings.timezone ||
+                        'Africa/Kampala'
+                    )
+
+                    .format(
+                        'HH:mm:ss'
+                    )
+
+            //========================================
+            // MENU TEXT
+            //========================================
 
             const menu = `
 ╭━━━〔 🤖 NOX SPARROW BOT 〕━━━⬣
@@ -95,7 +160,6 @@ module.exports = {
 ┃
 ┣━━〔 ⚙️ MAIN MENU 〕━━⬣
 ┃ ${prefix}menu
-┃ ${prefix}help
 ┃ ${prefix}ping
 ┃ ${prefix}alive
 ┃ ${prefix}runtime
@@ -107,7 +171,6 @@ module.exports = {
 ┃ ${prefix}setname
 ┃ ${prefix}setbio
 ┃ ${prefix}setbotdp
-┃ ${prefix}setprefix
 ┃
 ┣━━〔 👥 GROUP MENU 〕━━⬣
 ┃ ${prefix}tagall
@@ -122,83 +185,82 @@ module.exports = {
 ┃ ${prefix}movie
 ┃ ${prefix}anime
 ┃ ${prefix}song
-┃ ${prefix}pinterest
-┃ ${prefix}profile
 ┃
 ┣━━〔 📥 DOWNLOAD MENU 〕━━⬣
 ┃ ${prefix}play
 ┃ ${prefix}video
 ┃ ${prefix}tiktok
 ┃ ${prefix}instagram
-┃ ${prefix}facebook
-┃ ${prefix}apk
 ┃
 ┣━━〔 🛠️ TOOLS MENU 〕━━⬣
 ┃ ${prefix}sticker
 ┃ ${prefix}tourl
 ┃ ${prefix}toimg
-┃ ${prefix}shorturl
 ┃ ${prefix}translate
-┃ ${prefix}calculate
 ┃
 ┣━━〔 🎭 FUN MENU 〕━━⬣
 ┃ ${prefix}quote
 ┃ ${prefix}joke
 ┃ ${prefix}fact
-┃ ${prefix}image
-┃ ${prefix}hentai
 ┃ ${prefix}ai
 ┃
 ╰━━━━━━━━━━━━━━━━━━⬣
 
-${footer}
-${channel}
+${settings.footer || ''}
+
+${settings.channel || ''}
 `
 
-            try {
+            //========================================
+            // SEND IMAGE MENU
+            //========================================
 
-                if (
-                    settings &&
-                    typeof settings.botImage === 'string' &&
-                    fs.existsSync(settings.botImage)
-                ) {
+            if (
+                settings.botImage &&
+                fs.existsSync(
+                    settings.botImage
+                )
+            ) {
 
-                    await sock.sendMessage(from, {
-                        image: fs.readFileSync(settings.botImage),
-                        caption: menu
-                    })
+                await sock.sendMessage(
+                    from,
+                    {
+                        image:
+                            fs.readFileSync(
+                                settings.botImage
+                            ),
 
-                } else {
-
-                    await sock.sendMessage(from, {
-                        text: menu
-                    })
-                }
-
-            } catch (sendError) {
-
-                console.log(
-                    'Menu Send Error:',
-                    sendError
+                        caption:
+                            menu
+                    }
                 )
 
-                await sock.sendMessage(from, {
-                    text: menu
-                })
+            } else {
+
+                await sock.sendMessage(
+                    from,
+                    {
+                        text: menu
+                    }
+                )
             }
 
         } catch (error) {
 
             console.log(
-                'Menu Command Error:',
+                'MENU ERROR:',
                 error
             )
 
             try {
 
-                await sock.sendMessage(from, {
-                    text: 'Failed to display menu.'
-                })
+                await sock.sendMessage(
+                    msg.key.remoteJid,
+                    {
+                        text:
+                            '❌ Failed to load menu.'
+                    }
+                )
 
             } catch {}
         }
