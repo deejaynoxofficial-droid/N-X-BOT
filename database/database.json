@@ -1,97 +1,147 @@
 {
-    "users": {},
+  "users": {},
 
-    "groups": {
+  "groups": {
 
-        "GROUP_ID": {
+    "GROUP_ID": {
 
-            "antilink": {
+      "antilink": {
 
-                "enabled": false,
+        "enabled": false,
 
-                "mode": "delete"
-            },
+        "mode": "delete"
+      },
 
-            "antibadword": {
+      "antibadword": {
 
-                "enabled": false,
+        "enabled": false,
 
-                "mode": "delete"
-            },
+        "mode": "delete"
+      },
 
-            "adminsonly": false,
+      "adminsonly": false,
 
-            "groupmode": "open",
+      "groupmode": "open",
 
-            "mute": false,
+      "mute": false,
 
-            "nsfw": false,
+      "nsfw": false,
 
-            "warnings": {}
-        }
-    },
+      "welcome": false,
 
-    "settings": {
+      "goodbye": false,
 
-        "bot": {
+      "menu": {
 
-            "prefix": ".",
+        "type": "grouped",
 
-            "mode": "public",
+        "reply": true,
 
-            "autoRead": false,
+        "emoji": true
+      },
 
-            "autoTyping": false,
-
-            "autoRecording": false,
-
-            "autoSticker": false,
-
-            "autoReply": false,
-
-            "autoReplyMessage": "🤖 Hello, I am currently busy. I will reply later.",
-
-            "autoViewOnce": false,
-
-            "autoViewOnceMode": "private",
-
-            "antiCall": false
-        },
-
-        "owner": {
-
-            "numbers": [
-                "256700000000"
-            ]
-        },
-
-        "apis": {
-
-            "neoxr": "",
-
-            "apiKey": ""
-        }
-    },
-
-    "chatbot": {
-
-        "enabled": true
-    },
-
-    "broadcasts": [],
-
-    "downloads": {},
-
-    "stickers": {},
-
-    "statistics": {
-
-        "commands": 0,
-
-        "messages": 0,
-
-        "groups": 0,
-
-        "users": 0
+      "warnings": {}
     }
+  },
+
+  "settings": {
+
+    "bot": {
+
+      "prefix": ".",
+
+      "mode": "public",
+
+      "autoRead": false,
+
+      "autoTyping": false,
+
+      "autoRecording": false,
+
+      "autoSticker": false,
+
+      "autoReply": false,
+
+      "autoReplyMessage": "🤖 Hello, I am currently busy. I will reply later.",
+
+      "autoViewOnce": false,
+
+      "autoViewOnceMode": "private",
+
+      "antiCall": false,
+
+      "replyCommands": true,
+
+      "commandReaction": true,
+
+      "menuType": "grouped",
+
+      "menuReply": true,
+
+      "menuImage": true,
+
+      "menuEmoji": true
+    },
+
+    "owner": {
+
+      "numbers": [
+        "256748752152"
+      ]
+    },
+
+    "apis": {
+
+      "neoxr": "",
+
+      "apiKey": ""
+    }
+  },
+
+  "chatbot": {
+
+    "enabled": true
+  },
+
+  "broadcasts": [],
+
+  "downloads": {},
+
+  "stickers": {},
+
+  "cooldowns": {},
+
+  "spam": {},
+
+  "replyMessages": {},
+
+  "pairSessions": {},
+
+  "menuReplies": {
+
+    "main": "⚙️ Main Menu",
+
+    "group": "👥 Group Menu",
+
+    "download": "📥 Download Menu",
+
+    "search": "🔎 Search Menu",
+
+    "tools": "🛠️ Tools Menu",
+
+    "fun": "🎭 Fun Menu",
+
+    "owner": "👑 Owner Menu"
+  },
+
+  "statistics": {
+
+    "commands": 0,
+
+    "messages": 0,
+
+    "groups": 0,
+
+    "users": 0
+  }
 }
