@@ -1,25 +1,90 @@
 const os = require('os')
 const fs = require('fs')
 const settings = require('../settings')
-const { runtime } = require('../utils/functions')
+
+//========================================
+// SAFE RUNTIME FUNCTION
+//========================================
+
+function runtime(seconds) {
+
+    seconds = Number(seconds)
+
+    const d =
+        Math.floor(seconds / (3600 * 24))
+
+    const h =
+        Math.floor(
+            seconds % (3600 * 24) / 3600
+        )
+
+    const m =
+        Math.floor(
+            seconds % 3600 / 60
+        )
+
+    const s =
+        Math.floor(
+            seconds % 60
+        )
+
+    return [
+
+        d > 0
+            ? d + 'd'
+            : '',
+
+        h > 0
+            ? h + 'h'
+            : '',
+
+        m > 0
+            ? m + 'm'
+            : '',
+
+        s > 0
+            ? s + 's'
+            : ''
+
+    ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+//========================================
+// COMMAND
+//========================================
 
 module.exports = {
+
     name: 'alive',
 
-    async execute(sock, msg) {
+    aliases: [
+        'online',
+        'botstatus'
+    ],
 
-        const from = msg.key.remoteJid
+    async execute(
+        sock,
+        msg
+    ) {
+
+        const from =
+            msg.key.remoteJid
 
         try {
 
             const ramUsed =
+
                 (
-                    process.memoryUsage().heapUsed /
+                    process.memoryUsage()
+                        .heapUsed /
                     1024 /
                     1024
                 ).toFixed(2)
 
             const totalRam =
+
                 (
                     os.totalmem() /
                     1024 /
@@ -35,33 +100,61 @@ module.exports = {
 ┃ 💾 RAM Usage: ${ramUsed} MB
 ┃ 🧠 Total RAM: ${totalRam} GB
 ┃ 🖥️ Platform: ${os.platform()}
-┃ 📦 Version: v1.0.0
+┃ 📦 Version: ${settings.botVersion || '1.0.0'}
 ┃ 👑 Owner: ${settings.ownerName}
 ┃
 ╰━━━━━━━━━━━━━━━━━━⬣
 
-${settings.footer}
+${settings.footer || ''}
 `
 
-            // SEND WITH IMAGE
+            //========================================
+            // SEND IMAGE
+            //========================================
+
             if (
+
                 settings.botImage &&
-                fs.existsSync(settings.botImage)
+
+                fs.existsSync(
+                    settings.botImage
+                )
+
             ) {
 
-                await sock.sendMessage(from, {
-                    image: fs.readFileSync(settings.botImage),
-                    caption: response
-                })
+                await sock.sendMessage(
+                    from,
+                    {
+                        image:
+                            fs.readFileSync(
+                                settings.botImage
+                            ),
 
-            } else {
+                        caption:
+                            response
+                    }
+                )
 
-                await sock.sendMessage(from, {
-                    text: response
-                })
             }
 
-        } catch (error) {
+            //========================================
+            // SEND TEXT
+            //========================================
+
+            else {
+
+                await sock.sendMessage(
+                    from,
+                    {
+                        text:
+                            response
+                    }
+                )
+            }
+
+        }
+
+        catch (error) {
 
             console.log(
                 'Alive Command Error:',
@@ -70,9 +163,13 @@ ${settings.footer}
 
             try {
 
-                await sock.sendMessage(from, {
-                    text: '❌ Failed to execute alive command.'
-                })
+                await sock.sendMessage(
+                    from,
+                    {
+                        text:
+                            '❌ Failed to execute alive command.'
+                    }
+                )
 
             } catch {}
         }
