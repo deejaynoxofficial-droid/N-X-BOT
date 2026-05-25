@@ -1,8 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const settings =
-    require('../settings')
+const settings = require('../settings')
 
 const {
     getUser,
@@ -25,19 +24,28 @@ const commandsPath = path.join(
 )
 
 //========================================
-// CREATE FOLDER
+// CREATE COMMANDS FOLDER
 //========================================
 
-if (
-    !fs.existsSync(commandsPath)
-) {
+try {
 
-    fs.mkdirSync(
-        commandsPath,
-        {
-            recursive: true
-        }
+    if (!fs.existsSync(commandsPath)) {
+
+        fs.mkdirSync(
+            commandsPath,
+            {
+                recursive: true
+            }
+        )
+    }
+
+} catch (err) {
+
+    console.log(
+        '❌ COMMAND FOLDER ERROR:'
     )
+
+    console.log(err)
 }
 
 //========================================
@@ -46,87 +54,134 @@ if (
 
 function loadCommands() {
 
-    commands.clear()
+    try {
 
-    const files =
-        fs.readdirSync(commandsPath)
+        commands.clear()
+
+        const files = fs
+            .readdirSync(commandsPath)
             .filter(file =>
                 file.endsWith('.js')
             )
 
-    for (const file of files) {
+        for (const file of files) {
 
-        try {
+            try {
 
-            const filePath =
-                path.join(
+                const filePath = path.join(
                     commandsPath,
                     file
                 )
 
-            delete require.cache[
-                require.resolve(filePath)
-            ]
+                //========================================
+                // CLEAR CACHE
+                //========================================
 
-            const command =
-                require(filePath)
+                delete require.cache[
+                    require.resolve(filePath)
+                ]
 
-            if (
-                !command ||
-                typeof command !== 'object'
-            ) {
-                continue
-            }
+                const command =
+                    require(filePath)
 
-            if (
-                !command.name ||
-                typeof command.execute !==
-                'function'
-            ) {
-                continue
-            }
+                //========================================
+                // VALIDATION
+                //========================================
 
-            const name =
-                command.name.toLowerCase()
+                if (
+                    !command ||
+                    typeof command !== 'object'
+                ) {
 
-            commands.set(
-                name,
-                command
-            )
-
-            // aliases
-            if (
-                Array.isArray(
-                    command.aliases
-                )
-            ) {
-
-                for (const alias of command.aliases) {
-
-                    commands.set(
-                        alias.toLowerCase(),
-                        command
+                    console.log(
+                        `❌ INVALID COMMAND: ${file}`
                     )
+
+                    continue
                 }
+
+                if (
+                    !command.name ||
+                    typeof command.name !== 'string'
+                ) {
+
+                    console.log(
+                        `❌ MISSING NAME: ${file}`
+                    )
+
+                    continue
+                }
+
+                if (
+                    typeof command.execute !==
+                    'function'
+                ) {
+
+                    console.log(
+                        `❌ MISSING EXECUTE: ${file}`
+                    )
+
+                    continue
+                }
+
+                const name =
+                    command.name.toLowerCase()
+
+                commands.set(
+                    name,
+                    command
+                )
+
+                //========================================
+                // LOAD ALIASES
+                //========================================
+
+                if (
+                    Array.isArray(
+                        command.aliases
+                    )
+                ) {
+
+                    for (const alias of command.aliases) {
+
+                        if (
+                            typeof alias === 'string'
+                        ) {
+
+                            commands.set(
+                                alias.toLowerCase(),
+                                command
+                            )
+                        }
+                    }
+                }
+
+                console.log(
+                    `✅ LOADED: ${name}`
+                )
+
+            } catch (err) {
+
+                console.log(
+                    `❌ FAILED LOADING: ${file}`
+                )
+
+                console.log(err)
             }
-
-            console.log(
-                `✅ Loaded Command: ${name}`
-            )
-
-        } catch (err) {
-
-            console.log(
-                `❌ Failed Loading: ${file}`
-            )
-
-            console.log(err)
         }
-    }
 
-    console.log(
-        `📦 TOTAL COMMANDS: ${commands.size}`
-    )
+        console.log(
+            `📦 TOTAL COMMANDS: ${commands.size}`
+        )
+
+    } catch (err) {
+
+        console.log(
+            '❌ LOAD COMMANDS ERROR:'
+        )
+
+        console.log(err)
+    }
 }
 
 //========================================
@@ -136,7 +191,7 @@ function loadCommands() {
 loadCommands()
 
 //========================================
-// GET MESSAGE TEXT
+// GET MESSAGE BODY
 //========================================
 
 function getBody(msg) {
@@ -144,41 +199,42 @@ function getBody(msg) {
     try {
 
         const message =
-            msg.message
+            msg.message || {}
 
         const msgType =
-            Object.keys(message || {})[0]
+            Object.keys(message)[0]
 
         const content =
-            message?.[msgType]
+            message[msgType] || {}
 
         return (
 
-            message?.conversation ||
+            message.conversation ||
 
-            message?.extendedTextMessage?.text ||
+            message.extendedTextMessage?.text ||
 
-            content?.text ||
+            message.imageMessage?.caption ||
 
-            content?.caption ||
+            message.videoMessage?.caption ||
 
-            content?.selectedButtonId ||
-
-            content?.singleSelectReply
-                ?.selectedRowId ||
-
-            message?.buttonsResponseMessage
+            message.buttonsResponseMessage
                 ?.selectedButtonId ||
 
-            message?.listResponseMessage
+            message.listResponseMessage
                 ?.singleSelectReply
                 ?.selectedRowId ||
 
-            message?.templateButtonReplyMessage
+            message.templateButtonReplyMessage
                 ?.selectedId ||
 
-            message?.interactiveResponseMessage
-                ?.body?.text ||
+            content.text ||
+
+            content.caption ||
+
+            content.selectedButtonId ||
+
+            content.singleSelectReply
+                ?.selectedRowId ||
 
             ''
         )
@@ -200,6 +256,10 @@ async function handleCommand(
 
     try {
 
+        //========================================
+        // SAFE CHECKS
+        //========================================
+
         if (
             !sock ||
             !msg ||
@@ -215,6 +275,21 @@ async function handleCommand(
             return
         }
 
+        //========================================
+        // IGNORE STATUS
+        //========================================
+
+        if (
+            from ===
+            'status@broadcast'
+        ) {
+            return
+        }
+
+        //========================================
+        // SELF COMMANDS
+        //========================================
+
         if (
             msg.key?.fromMe &&
             settings.selfCommands !== true
@@ -225,23 +300,21 @@ async function handleCommand(
         const isGroup =
             from.endsWith('@g.us')
 
-        const sender =
-            isGroup
-                ? (
-                    msg.key?.participant ||
-                    ''
-                  )
-                : from
+        const sender = isGroup
+            ? (
+                msg.key?.participant ||
+                ''
+              )
+            : from
 
         const normalizedSender =
-
             sender.includes(':')
                 ? sender.split(':')[0] +
                   '@s.whatsapp.net'
                 : sender
 
         //========================================
-        // GET TEXT
+        // MESSAGE BODY
         //========================================
 
         const body =
@@ -255,7 +328,7 @@ async function handleCommand(
         }
 
         //========================================
-        // REPLY HANDLERS
+        // RUN REPLY HANDLERS
         //========================================
 
         for (const cmd of commands.values()) {
@@ -276,7 +349,7 @@ async function handleCommand(
             } catch (err) {
 
                 console.log(
-                    `❌ ReplyHandler Error (${cmd.name})`
+                    `❌ REPLY HANDLER ERROR (${cmd.name})`
                 )
 
                 console.log(err)
@@ -296,15 +369,17 @@ async function handleCommand(
             return
         }
 
-        const args =
-            body
-                .slice(prefix.length)
-                .trim()
-                .split(/\s+/)
+        //========================================
+        // COMMAND PARSE
+        //========================================
+
+        const args = body
+            .slice(prefix.length)
+            .trim()
+            .split(/\s+/)
 
         const commandName =
-            args.shift()
-                ?.toLowerCase()
+            args.shift()?.toLowerCase()
 
         if (!commandName) {
             return
@@ -313,42 +388,53 @@ async function handleCommand(
         const command =
             commands.get(commandName)
 
+        //========================================
+        // COMMAND NOT FOUND
+        //========================================
+
         if (!command) {
 
             console.log(
-                `❌ Unknown Command: ${commandName}`
+                `❌ UNKNOWN COMMAND: ${commandName}`
             )
-
-            return
-        }
-
-        //========================================
-        // DATABASE
-        //========================================
-
-        const userData =
-            getUser(normalizedSender)
-
-        const groupData =
-            isGroup
-                ? getGroup(from)
-                : null
-
-        //========================================
-        // BANNED
-        //========================================
-
-        if (
-            userData?.banned
-        ) {
 
             return await sock.sendMessage(
                 from,
                 {
                     text:
-                        '❌ You are banned.'
+                        '❌ Command not found.'
+                },
+                {
+                    quoted: msg
                 }
             )
+        }
+
+        //========================================
+        // DATABASE SAFE
+        //========================================
+
+        let userData = {}
+        let groupData = {}
+
+        try {
+
+            userData =
+                getUser(normalizedSender) || {}
+
+            if (isGroup) {
+
+                groupData =
+                    getGroup(from) || {}
+            }
+
+        } catch (dbError) {
+
+            console.log(
+                '❌ DATABASE ERROR:'
+            )
+
+            console.log(dbError)
         }
 
         //========================================
@@ -356,7 +442,7 @@ async function handleCommand(
         //========================================
 
         if (
-            settings.maintenance &&
+            settings.maintenance === true &&
             normalizedSender !==
             `${settings.ownerNumber}@s.whatsapp.net`
         ) {
@@ -366,6 +452,9 @@ async function handleCommand(
                 {
                     text:
                         '🚧 Bot under maintenance.'
+                },
+                {
+                    quoted: msg
                 }
             )
         }
@@ -375,7 +464,7 @@ async function handleCommand(
         //========================================
 
         if (
-            command.owner &&
+            command.owner === true &&
             normalizedSender !==
             `${settings.ownerNumber}@s.whatsapp.net`
         ) {
@@ -385,6 +474,9 @@ async function handleCommand(
                 {
                     text:
                         '❌ Owner only command.'
+                },
+                {
+                    quoted: msg
                 }
             )
         }
@@ -394,7 +486,7 @@ async function handleCommand(
         //========================================
 
         if (
-            command.group &&
+            command.group === true &&
             !isGroup
         ) {
 
@@ -403,6 +495,9 @@ async function handleCommand(
                 {
                     text:
                         '❌ Group only command.'
+                },
+                {
+                    quoted: msg
                 }
             )
         }
@@ -412,7 +507,7 @@ async function handleCommand(
         //========================================
 
         if (
-            command.private &&
+            command.private === true &&
             isGroup
         ) {
 
@@ -421,32 +516,57 @@ async function handleCommand(
                 {
                     text:
                         '❌ Private only command.'
+                },
+                {
+                    quoted: msg
                 }
             )
         }
 
         //========================================
-        // EXECUTE
+        // BANNED USER
+        //========================================
+
+        if (
+            userData?.banned === true
+        ) {
+
+            return await sock.sendMessage(
+                from,
+                {
+                    text:
+                        '❌ You are banned.'
+                },
+                {
+                    quoted: msg
+                }
+            )
+        }
+
+        //========================================
+        // LOG COMMAND
         //========================================
 
         console.log(
-            `▶ RUNNING: ${commandName}`
+            `▶ RUNNING COMMAND: ${commandName}`
         )
 
-        await Promise.resolve(
+        //========================================
+        // EXECUTE COMMAND
+        //========================================
 
-            command.execute(
-                sock,
-                msg,
-                args,
-                {
-                    userData,
-                    groupData,
-                    isGroup,
-                    sender:
-                        normalizedSender
-                }
-            )
+        await command.execute(
+            sock,
+            msg,
+            args,
+            {
+                userData,
+                groupData,
+                isGroup,
+                sender:
+                    normalizedSender,
+                prefix
+            }
         )
 
     } catch (err) {
