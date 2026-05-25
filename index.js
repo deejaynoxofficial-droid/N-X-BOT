@@ -5,7 +5,6 @@ require('dotenv').config()
 //========================================
 
 const express = require('express')
-
 const app = express()
 
 const {
@@ -16,11 +15,8 @@ const {
 } = require('@whiskeysockets/baileys')
 
 const pino = require('pino')
-
 const fs = require('fs')
-
 const path = require('path')
-
 const axios = require('axios')
 
 const chalkImport = require('chalk')
@@ -68,21 +64,17 @@ try {
 //========================================
 
 let reconnecting = false
-
 let activeSocket = null
-
 let sock = null
 
 const sessions = new Map()
 
 //========================================
-// EXPRESS STATIC WEBSITE
+// EXPRESS
 //========================================
 
 app.use(
-
     express.static(
-
         path.join(
             __dirname,
             'public'
@@ -130,9 +122,12 @@ function createFolders() {
                 !fs.existsSync(folder)
             ) {
 
-                fs.mkdirSync(folder, {
-                    recursive: true
-                })
+                fs.mkdirSync(
+                    folder,
+                    {
+                        recursive: true
+                    }
+                )
             }
 
         } catch (err) {
@@ -154,7 +149,6 @@ function isSessionValid(sessionPath) {
     try {
 
         const credsPath =
-
             path.join(
                 sessionPath,
                 'creds.json'
@@ -179,7 +173,6 @@ function cleanupSession(phone) {
     try {
 
         const sessionPath =
-
             path.join(
                 __dirname,
                 'sessions',
@@ -229,26 +222,10 @@ async function createPairSocket(phone) {
             sessions.has(phone)
         ) {
 
-            const existingSocket =
-                sessions.get(phone)
-
-            try {
-
-                if (
-                    existingSocket &&
-                    existingSocket.ws
-                ) {
-
-                    return existingSocket
-                }
-
-            } catch {}
-
-            sessions.delete(phone)
+            return sessions.get(phone)
         }
 
         const sessionPath =
-
             path.join(
                 __dirname,
                 'sessions',
@@ -339,7 +316,7 @@ async function createPairSocket(phone) {
 
                 qrTimeout: 60000,
 
-                emitOwnEvents: false,
+                emitOwnEvents: true,
 
                 fireInitQueries: true,
 
@@ -371,7 +348,6 @@ async function createPairSocket(phone) {
                 try {
 
                     const statusCode =
-
                         lastDisconnect
                             ?.error
                             ?.output
@@ -500,10 +476,9 @@ async function startBot() {
 
         sock = makeWASocket({
 
-            logger:
-                pino({
-                    level: 'silent'
-                }),
+            logger: pino({
+                level: 'silent'
+            }),
 
             auth: state,
 
@@ -527,17 +502,17 @@ async function startBot() {
 
             keepAliveIntervalMs: 10000,
 
-            emitOwnEvents: false,
-
-            fireInitQueries: true,
-
-            generateHighQualityLinkPreview: true,
-
             retryRequestDelayMs: 250,
 
             maxMsgRetryCount: 5,
 
             qrTimeout: 60000,
+
+            emitOwnEvents: true,
+
+            fireInitQueries: true,
+
+            generateHighQualityLinkPreview: true,
 
             shouldSyncHistoryMessage:
                 () => false
@@ -558,44 +533,50 @@ async function startBot() {
 
             'messages.upsert',
 
-            async ({ messages }) => {
+            async (m) => {
 
                 try {
 
                     const msg =
-                        messages?.[0]
+                        m.messages?.[0]
+
+                    if (!msg) return
+
+                    if (!msg.message) return
 
                     if (
-                        !msg ||
-                        !msg.message
-                    ) {
-                        return
-                    }
-
-                    //========================================
-                    // FIX SELF COMMANDS
-                    //========================================
-
-                    if (
-                        msg.key?.fromMe &&
-                        settings.selfCommands !== true
-                    ) {
-                        return
-                    }
-
-                    if (
-                        msg.key.remoteJid ===
+                        msg.key?.remoteJid ===
                         'status@broadcast'
                     ) {
                         return
                     }
 
                     const from =
-                        msg.key.remoteJid
+                        msg.key?.remoteJid
 
-                    if (!from) {
-                        return
-                    }
+                    if (!from) return
+
+                    const body =
+
+                        msg.message?.conversation ||
+
+                        msg.message?.extendedTextMessage?.text ||
+
+                        msg.message?.imageMessage?.caption ||
+
+                        msg.message?.videoMessage?.caption ||
+
+                        msg.message?.buttonsResponseMessage?.selectedButtonId ||
+
+                        msg.message?.listResponseMessage
+                            ?.singleSelectReply
+                            ?.selectedRowId ||
+
+                        ''
+
+                    console.log(
+                        `MESSAGE: ${body || 'NO TEXT'}`
+                    )
 
                     const isGroup =
                         from.endsWith('@g.us')
@@ -603,7 +584,7 @@ async function startBot() {
                     const sender =
                         isGroup
                             ? (
-                                msg.key.participant ||
+                                msg.key?.participant ||
                                 ''
                               )
                             : from
@@ -625,6 +606,10 @@ async function startBot() {
                         )
                     }
 
+                    //========================================
+                    // AUTO READ
+                    //========================================
+
                     if (
                         settings.autoRead
                     ) {
@@ -637,6 +622,10 @@ async function startBot() {
 
                         } catch {}
                     }
+
+                    //========================================
+                    // AUTO TYPING
+                    //========================================
 
                     if (
                         settings.autoTyping
@@ -652,6 +641,10 @@ async function startBot() {
                         } catch {}
                     }
 
+                    //========================================
+                    // AUTO RECORDING
+                    //========================================
+
                     if (
                         settings.autoRecording
                     ) {
@@ -666,6 +659,10 @@ async function startBot() {
                         } catch {}
                     }
 
+                    //========================================
+                    // VIEWONCE
+                    //========================================
+
                     if (
                         settings.antiViewOnce &&
                         autoViewOnceHandler
@@ -675,32 +672,40 @@ async function startBot() {
 
                             await autoViewOnceHandler(
                                 sock,
-                                messages
+                                m.messages
                             )
 
-                        } catch (viewError) {
+                        } catch (err) {
 
                             console.log(
-                                'AUTO VIEWONCE ERROR:',
-                                viewError
+                                'VIEWONCE ERROR:',
+                                err
                             )
                         }
                     }
+
+                    //========================================
+                    // LISTENERS
+                    //========================================
 
                     try {
 
                         await handleListeners(
                             sock,
-                            messages
+                            m.messages
                         )
 
-                    } catch (listenerError) {
+                    } catch (err) {
 
                         console.log(
                             'LISTENER ERROR:',
-                            listenerError
+                            err
                         )
                     }
+
+                    //========================================
+                    // COMMANDS
+                    //========================================
 
                     try {
 
@@ -709,18 +714,18 @@ async function startBot() {
                             msg
                         )
 
-                    } catch (cmdError) {
+                    } catch (err) {
 
                         console.log(
                             'COMMAND ERROR:',
-                            cmdError
+                            err
                         )
                     }
 
                 } catch (err) {
 
                     console.log(
-                        'MESSAGE EVENT ERROR:',
+                        'MESSAGE UPSERT ERROR:',
                         err
                     )
                 }
@@ -743,7 +748,6 @@ async function startBot() {
                 try {
 
                     const statusCode =
-
                         lastDisconnect
                             ?.error
                             ?.output
@@ -881,7 +885,6 @@ app.get(
             }
 
             const cleanNumber =
-
                 number.replace(
                     /[^0-9]/g,
                     ''
@@ -917,7 +920,6 @@ app.get(
             )
 
             const code =
-
                 await pairSock.requestPairingCode(
                     cleanNumber
                 )
@@ -938,25 +940,20 @@ app.get(
                 err
             )
 
-            res.send(
-                'FAILED'
-            )
+            res.send('FAILED')
         }
     }
 )
 
 //========================================
-// ROOT PAGE
+// ROOT
 //========================================
 
 app.get(
-
     '/',
-
     (req, res) => {
 
         res.sendFile(
-
             path.join(
                 __dirname,
                 'public',
@@ -967,7 +964,7 @@ app.get(
 )
 
 //========================================
-// AUTO CLEAN DEAD SOCKETS
+// CLEAN DEAD SOCKETS
 //========================================
 
 setInterval(() => {
@@ -1000,7 +997,7 @@ setInterval(() => {
 }, 600000)
 
 //========================================
-// RENDER KEEP ALIVE
+// KEEP ALIVE
 //========================================
 
 if (
@@ -1025,7 +1022,7 @@ if (
 }
 
 //========================================
-// START EXPRESS + BOT
+// START SERVER
 //========================================
 
 const PORT =
