@@ -21,22 +21,24 @@ const commandsPath = path.join(
 // SAFE COMMAND COUNT
 //========================================
 
-let commandFiles = []
+function getCommandCount() {
 
-try {
+    try {
 
-    if (fs.existsSync(commandsPath)) {
+        if (!fs.existsSync(commandsPath)) {
+            return 0
+        }
 
-        commandFiles = fs
+        return fs
             .readdirSync(commandsPath)
             .filter(file =>
                 file.endsWith('.js')
-            )
+            ).length
+
+    } catch {
+
+        return 0
     }
-
-} catch {
-
-    commandFiles = []
 }
 
 //========================================
@@ -117,6 +119,64 @@ function getPrefix() {
 }
 
 //========================================
+// GET BODY
+//========================================
+
+function getBody(msg) {
+
+    try {
+
+        const message =
+            msg.message || {}
+
+        const ephemeral =
+            message?.ephemeralMessage
+                ?.message || {}
+
+        const viewOnce =
+            message?.viewOnceMessage
+                ?.message || {}
+
+        const msgData =
+            Object.keys(ephemeral).length
+                ? ephemeral
+                : Object.keys(viewOnce).length
+                ? viewOnce
+                : message
+
+        return (
+
+            msgData.conversation ||
+
+            msgData.extendedTextMessage
+                ?.text ||
+
+            msgData.imageMessage
+                ?.caption ||
+
+            msgData.videoMessage
+                ?.caption ||
+
+            msgData.buttonsResponseMessage
+                ?.selectedButtonId ||
+
+            msgData.listResponseMessage
+                ?.singleSelectReply
+                ?.selectedRowId ||
+
+            msgData.templateButtonReplyMessage
+                ?.selectedId ||
+
+            ''
+        )
+
+    } catch {
+
+        return ''
+    }
+}
+
+//========================================
 // MENU EXPORT
 //========================================
 
@@ -132,7 +192,7 @@ module.exports = {
     category: 'main',
 
     description:
-        'Show bot menu',
+        'Show grouped bot menu',
 
     //========================================
     // EXECUTE
@@ -190,7 +250,7 @@ module.exports = {
 ┃ ⚡ Prefix: ${prefix}
 ┃ 📅 Date: ${date}
 ┃ ⏰ Time: ${time}
-┃ 📦 Commands: ${commandFiles.length}
+┃ 📦 Commands: ${getCommandCount()}
 ┃
 ┣━━〔 📂 MENU LIST 〕━━⬣
 ┃
@@ -218,40 +278,62 @@ ${settings.footer || ''}
             // IMAGE MENU
             //========================================
 
-            if (
-                settings.botImage &&
-                fs.existsSync(
-                    settings.botImage
-                )
-            ) {
+            try {
 
-                sentMessage =
-                    await sock.sendMessage(
-                        from,
-                        {
-                            image:
-                                fs.readFileSync(
-                                    settings.botImage
-                                ),
-
-                            caption:
-                                menu
-                        }
+                if (
+                    settings.botImage &&
+                    fs.existsSync(
+                        settings.botImage
                     )
+                ) {
 
-            } else {
+                    sentMessage =
+                        await sock.sendMessage(
+                            from,
+                            {
+                                image:
+                                    fs.readFileSync(
+                                        settings.botImage
+                                    ),
+
+                                caption:
+                                    menu
+                            },
+                            {
+                                quoted: msg
+                            }
+                        )
+
+                } else {
+
+                    sentMessage =
+                        await sock.sendMessage(
+                            from,
+                            {
+                                text: menu
+                            },
+                            {
+                                quoted: msg
+                            }
+                        )
+                }
+
+            } catch {
 
                 sentMessage =
                     await sock.sendMessage(
                         from,
                         {
                             text: menu
+                        },
+                        {
+                            quoted: msg
                         }
                     )
             }
 
             //========================================
-            // STORE REPLY DATA
+            // SAVE REPLY SESSION
             //========================================
 
             global.menuReplies[
@@ -267,12 +349,17 @@ ${settings.footer || ''}
                 prefix
             }
 
+            console.log(
+                `✅ MENU SENT TO ${sender}`
+            )
+
         } catch (error) {
 
             console.log(
-                'MENU ERROR:',
-                error
+                '❌ MENU ERROR:'
             )
+
+            console.log(error)
 
             try {
 
@@ -319,30 +406,42 @@ ${settings.footer || ''}
                 return
             }
 
+            //========================================
+            // SAFE QUOTED DETECTION
+            //========================================
+
             const quoted =
+
                 msg.message
                     ?.extendedTextMessage
                     ?.contextInfo
-                    ?.stanzaId
+                    ?.stanzaId ||
+
+                msg.message
+                    ?.imageMessage
+                    ?.contextInfo
+                    ?.stanzaId ||
+
+                msg.message
+                    ?.videoMessage
+                    ?.contextInfo
+                    ?.stanzaId ||
+
+                null
 
             if (
                 !quoted ||
-                quoted !==
-                replyData.key
+                quoted !== replyData.key
             ) {
                 return
             }
 
+            //========================================
+            // GET REPLY TEXT
+            //========================================
+
             const body =
-
-                msg.message
-                    ?.conversation ||
-
-                msg.message
-                    ?.extendedTextMessage
-                    ?.text ||
-
-                ''
+                getBody(msg)
 
             if (!body) {
                 return
@@ -353,6 +452,10 @@ ${settings.footer || ''}
 
             const prefix =
                 replyData.prefix
+
+            //========================================
+            // GROUPED MENUS
+            //========================================
 
             const menus = {
 
@@ -383,6 +486,8 @@ ${settings.footer || ''}
 ┃ ${prefix}promote
 ┃ ${prefix}mute
 ┃ ${prefix}nsfw
+┃ ${prefix}antilink
+┃ ${prefix}kick
 ╰━━━━━━━━━━━━━━━━━━⬣
 `,
 
@@ -403,6 +508,8 @@ ${settings.footer || ''}
 ┃ ${prefix}video
 ┃ ${prefix}tiktok
 ┃ ${prefix}instagram
+┃ ${prefix}ytmp3
+┃ ${prefix}ytmp4
 ╰━━━━━━━━━━━━━━━━━━⬣
 `,
 
@@ -412,6 +519,8 @@ ${settings.footer || ''}
 ┃ ${prefix}tourl
 ┃ ${prefix}toimg
 ┃ ${prefix}translate
+┃ ${prefix}tts
+┃ ${prefix}qr
 ╰━━━━━━━━━━━━━━━━━━⬣
 `,
 
@@ -420,6 +529,8 @@ ${settings.footer || ''}
 ┃ ${prefix}quote
 ┃ ${prefix}joke
 ┃ ${prefix}fact
+┃ ${prefix}truth
+┃ ${prefix}dare
 ┃ ${prefix}ai
 ╰━━━━━━━━━━━━━━━━━━⬣
 `
@@ -432,6 +543,10 @@ ${settings.footer || ''}
                 return
             }
 
+            //========================================
+            // SEND GROUP MENU
+            //========================================
+
             await sock.sendMessage(
                 from,
                 {
@@ -442,12 +557,17 @@ ${settings.footer || ''}
                 }
             )
 
+            console.log(
+                `✅ MENU REPLY: ${text}`
+            )
+
         } catch (error) {
 
             console.log(
-                'MENU REPLY ERROR:',
-                error
+                '❌ MENU REPLY ERROR:'
             )
+
+            console.log(error)
         }
     }
 }
