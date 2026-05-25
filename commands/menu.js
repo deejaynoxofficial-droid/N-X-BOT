@@ -1,16 +1,22 @@
 const fs = require('fs')
 const path = require('path')
-const moment = require('moment-timezone')
+
 const settings = require('../settings')
 
+const {
+    getUser,
+    getGroup
+} = require('../database/database')
+
 //========================================
-// PATHS
+// STORAGE
 //========================================
 
-const dbPath = path.join(
-    __dirname,
-    '../database/database.json'
-)
+const commands = new Map()
+
+//========================================
+// COMMAND PATH
+//========================================
 
 const commandsPath = path.join(
     __dirname,
@@ -18,108 +24,173 @@ const commandsPath = path.join(
 )
 
 //========================================
-// SAFE COMMAND COUNT
+// CREATE COMMANDS FOLDER
 //========================================
 
-function getCommandCount() {
+try {
+
+    if (!fs.existsSync(commandsPath)) {
+
+        fs.mkdirSync(
+            commandsPath,
+            {
+                recursive: true
+            }
+        )
+    }
+
+} catch (err) {
+
+    console.log(
+        '❌ COMMAND FOLDER ERROR:'
+    )
+
+    console.log(err)
+}
+
+//========================================
+// LOAD COMMANDS
+//========================================
+
+function loadCommands() {
 
     try {
 
-        if (!fs.existsSync(commandsPath)) {
-            return 0
-        }
+        commands.clear()
 
-        return fs
+        const files = fs
             .readdirSync(commandsPath)
             .filter(file =>
                 file.endsWith('.js')
-            ).length
+            )
 
-    } catch {
+        for (const file of files) {
 
-        return 0
+            try {
+
+                const filePath = path.join(
+                    commandsPath,
+                    file
+                )
+
+                delete require.cache[
+                    require.resolve(filePath)
+                ]
+
+                const command =
+                    require(filePath)
+
+                //========================================
+                // VALIDATION
+                //========================================
+
+                if (
+                    !command ||
+                    typeof command !== 'object'
+                ) {
+
+                    console.log(
+                        `❌ INVALID COMMAND: ${file}`
+                    )
+
+                    continue
+                }
+
+                if (
+                    !command.name ||
+                    typeof command.name !== 'string'
+                ) {
+
+                    console.log(
+                        `❌ MISSING NAME: ${file}`
+                    )
+
+                    continue
+                }
+
+                if (
+                    typeof command.execute !==
+                    'function'
+                ) {
+
+                    console.log(
+                        `❌ MISSING EXECUTE: ${file}`
+                    )
+
+                    continue
+                }
+
+                const name =
+                    command.name.toLowerCase()
+
+                commands.set(
+                    name,
+                    command
+                )
+
+                //========================================
+                // SAFE ALIASES
+                //========================================
+
+                if (
+                    Array.isArray(
+                        command.aliases
+                    )
+                ) {
+
+                    for (const alias of command.aliases) {
+
+                        if (
+                            typeof alias === 'string' &&
+                            !commands.has(
+                                alias.toLowerCase()
+                            )
+                        ) {
+
+                            commands.set(
+                                alias.toLowerCase(),
+                                command
+                            )
+                        }
+                    }
+                }
+
+                console.log(
+                    `✅ LOADED: ${name}`
+                )
+
+            } catch (err) {
+
+                console.log(
+                    `❌ FAILED LOADING: ${file}`
+                )
+
+                console.log(err)
+            }
+        }
+
+        console.log(
+            `📦 TOTAL COMMANDS: ${commands.size}`
+        )
+
+    } catch (err) {
+
+        console.log(
+            '❌ LOAD COMMANDS ERROR:'
+        )
+
+        console.log(err)
     }
 }
 
 //========================================
-// GLOBAL STORAGE
+// INITIAL LOAD
 //========================================
 
-global.menuReplies =
-    global.menuReplies || {}
+loadCommands()
 
 //========================================
-// AUTO CLEANUP
-//========================================
-
-setInterval(() => {
-
-    try {
-
-        const now = Date.now()
-
-        Object.keys(global.menuReplies)
-            .forEach(key => {
-
-                const data =
-                    global.menuReplies[key]
-
-                if (
-                    !data ||
-                    now - data.time >
-                    300000
-                ) {
-
-                    delete global
-                        .menuReplies[key]
-                }
-            })
-
-    } catch {}
-}, 60000)
-
-//========================================
-// GET PREFIX
-//========================================
-
-function getPrefix() {
-
-    try {
-
-        if (
-            fs.existsSync(dbPath)
-        ) {
-
-            const raw =
-                fs.readFileSync(
-                    dbPath,
-                    'utf8'
-                )
-
-            if (
-                raw &&
-                raw.trim() !== ''
-            ) {
-
-                const db =
-                    JSON.parse(raw)
-
-                return (
-                    db?.settings?.bot
-                        ?.prefix ||
-                    settings.prefix ||
-                    '.'
-                )
-            }
-        }
-
-    } catch {}
-
-    return settings.prefix || '.'
-}
-
-//========================================
-// GET BODY
+// GET MESSAGE BODY
 //========================================
 
 function getBody(msg) {
@@ -128,6 +199,10 @@ function getBody(msg) {
 
         const message =
             msg.message || {}
+
+        //========================================
+        // EPHEMERAL SUPPORT
+        //========================================
 
         const ephemeral =
             message?.ephemeralMessage
@@ -144,18 +219,21 @@ function getBody(msg) {
                 ? viewOnce
                 : message
 
+        const msgType =
+            Object.keys(msgData)[0]
+
+        const content =
+            msgData[msgType] || {}
+
         return (
 
             msgData.conversation ||
 
-            msgData.extendedTextMessage
-                ?.text ||
+            msgData.extendedTextMessage?.text ||
 
-            msgData.imageMessage
-                ?.caption ||
+            msgData.imageMessage?.caption ||
 
-            msgData.videoMessage
-                ?.caption ||
+            msgData.videoMessage?.caption ||
 
             msgData.buttonsResponseMessage
                 ?.selectedButtonId ||
@@ -167,6 +245,15 @@ function getBody(msg) {
             msgData.templateButtonReplyMessage
                 ?.selectedId ||
 
+            content.text ||
+
+            content.caption ||
+
+            content.selectedButtonId ||
+
+            content.singleSelectReply
+                ?.selectedRowId ||
+
             ''
         )
 
@@ -177,397 +264,375 @@ function getBody(msg) {
 }
 
 //========================================
-// MENU EXPORT
+// HANDLE COMMAND
 //========================================
 
-module.exports = {
+async function handleCommand(
+    sock,
+    msg
+) {
 
-    name: 'menu',
+    try {
 
-    aliases: [
-        'help',
-        'allmenu'
-    ],
-
-    category: 'main',
-
-    description:
-        'Show grouped bot menu',
-
-    //========================================
-    // EXECUTE
-    //========================================
-
-    async execute(
-        sock,
-        msg
-    ) {
-
-        try {
-
-            const from =
-                msg.key?.remoteJid
-
-            if (!from) return
-
-            const sender = (
-                msg.key?.participant ||
-                msg.key?.remoteJid ||
-                ''
-            ).split(':')[0]
-
-            const prefix =
-                getPrefix()
-
-            const pushName =
-                msg.pushName ||
-                'User'
-
-            const date =
-                moment()
-                    .tz(
-                        settings.timezone ||
-                        'Africa/Kampala'
-                    )
-                    .format(
-                        'DD/MM/YYYY'
-                    )
-
-            const time =
-                moment()
-                    .tz(
-                        settings.timezone ||
-                        'Africa/Kampala'
-                    )
-                    .format(
-                        'HH:mm:ss'
-                    )
-
-            const menu = `
-╭━━━〔 🤖 NOX SPARROW BOT 〕━━━⬣
-┃
-┃ 👋 User: ${pushName}
-┃ ⚡ Prefix: ${prefix}
-┃ 📅 Date: ${date}
-┃ ⏰ Time: ${time}
-┃ 📦 Commands: ${getCommandCount()}
-┃
-┣━━〔 📂 MENU LIST 〕━━⬣
-┃
-┃ 1️⃣ MAIN MENU
-┃ 2️⃣ OWNER MENU
-┃ 3️⃣ GROUP MENU
-┃ 4️⃣ SEARCH MENU
-┃ 5️⃣ DOWNLOAD MENU
-┃ 6️⃣ TOOLS MENU
-┃ 7️⃣ FUN MENU
-┃
-┣━━━━━━━━━━━━━━━━⬣
-┃
-┃ 💬 Reply with number
-┃ Example: 1
-┃
-╰━━━━━━━━━━━━━━━━━━⬣
-
-${settings.footer || ''}
-`
-
-            let sentMessage
-
-            //========================================
-            // IMAGE MENU
-            //========================================
-
-            try {
-
-                if (
-                    settings.botImage &&
-                    fs.existsSync(
-                        settings.botImage
-                    )
-                ) {
-
-                    sentMessage =
-                        await sock.sendMessage(
-                            from,
-                            {
-                                image:
-                                    fs.readFileSync(
-                                        settings.botImage
-                                    ),
-
-                                caption:
-                                    menu
-                            },
-                            {
-                                quoted: msg
-                            }
-                        )
-
-                } else {
-
-                    sentMessage =
-                        await sock.sendMessage(
-                            from,
-                            {
-                                text: menu
-                            },
-                            {
-                                quoted: msg
-                            }
-                        )
-                }
-
-            } catch {
-
-                sentMessage =
-                    await sock.sendMessage(
-                        from,
-                        {
-                            text: menu
-                        },
-                        {
-                            quoted: msg
-                        }
-                    )
-            }
-
-            //========================================
-            // SAVE REPLY SESSION
-            //========================================
-
-            global.menuReplies[
-                sender
-            ] = {
-
-                key:
-                    sentMessage?.key?.id,
-
-                time:
-                    Date.now(),
-
-                prefix
-            }
-
-            console.log(
-                `✅ MENU SENT TO ${sender}`
-            )
-
-        } catch (error) {
-
-            console.log(
-                '❌ MENU ERROR:'
-            )
-
-            console.log(error)
-
-            try {
-
-                await sock.sendMessage(
-                    msg.key.remoteJid,
-                    {
-                        text:
-                            '❌ Failed to load menu.'
-                    }
-                )
-
-            } catch {}
+        if (
+            !sock ||
+            !msg ||
+            !msg.message
+        ) {
+            return
         }
-    },
 
-    //========================================
-    // REPLY HANDLER
-    //========================================
+        const from =
+            msg.key?.remoteJid
 
-    async replyHandler(
-        sock,
-        msg
-    ) {
+        if (!from) {
+            return
+        }
+
+        //========================================
+        // IGNORE STATUS
+        //========================================
+
+        if (
+            from ===
+            'status@broadcast'
+        ) {
+            return
+        }
+
+        //========================================
+        // SELF COMMANDS
+        //========================================
+
+        if (
+            msg.key?.fromMe &&
+            settings.selfCommands !== true
+        ) {
+            return
+        }
+
+        const isGroup =
+            from.endsWith('@g.us')
+
+        const sender = isGroup
+            ? (
+                msg.key?.participant ||
+                ''
+              )
+            : from
+
+        const normalizedSender =
+            sender.includes(':')
+                ? sender.split(':')[0] +
+                  '@s.whatsapp.net'
+                : sender
+
+        //========================================
+        // GET BODY
+        //========================================
+
+        const body =
+            getBody(msg)
+
+        if (
+            !body ||
+            typeof body !== 'string'
+        ) {
+            return
+        }
+
+        //========================================
+        // SAFE MENU REPLY HANDLER ONLY
+        //========================================
 
         try {
 
-            const from =
-                msg.key?.remoteJid
-
-            if (!from) return
-
-            const sender = (
-                msg.key?.participant ||
-                msg.key?.remoteJid ||
-                ''
-            ).split(':')[0]
-
-            const replyData =
-                global.menuReplies[
-                    sender
-                ]
-
-            if (!replyData) {
-                return
-            }
-
-            //========================================
-            // SAFE QUOTED DETECTION
-            //========================================
-
-            const quoted =
-
-                msg.message
-                    ?.extendedTextMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
-
-                msg.message
-                    ?.imageMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
-
-                msg.message
-                    ?.videoMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
-
-                null
+            const menuCommand =
+                commands.get('menu')
 
             if (
-                !quoted ||
-                quoted !== replyData.key
+                menuCommand &&
+                typeof menuCommand.replyHandler ===
+                'function'
             ) {
-                return
+
+                await menuCommand.replyHandler(
+                    sock,
+                    msg
+                )
             }
 
-            //========================================
-            // GET REPLY TEXT
-            //========================================
-
-            const body =
-                getBody(msg)
-
-            if (!body) {
-                return
-            }
-
-            const text =
-                body.trim()
-
-            const prefix =
-                replyData.prefix
-
-            //========================================
-            // GROUPED MENUS
-            //========================================
-
-            const menus = {
-
-                '1': `
-╭━━━〔 ⚙️ MAIN MENU 〕━━━⬣
-┃ ${prefix}menu
-┃ ${prefix}ping
-┃ ${prefix}alive
-┃ ${prefix}runtime
-┃ ${prefix}uptime
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '2': `
-╭━━━〔 👤 OWNER MENU 〕━━━⬣
-┃ ${prefix}owner
-┃ ${prefix}repo
-┃ ${prefix}setname
-┃ ${prefix}setbio
-┃ ${prefix}setbotdp
-┃ ${prefix}setprefix
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '3': `
-╭━━━〔 👥 GROUP MENU 〕━━━⬣
-┃ ${prefix}tagall
-┃ ${prefix}promote
-┃ ${prefix}mute
-┃ ${prefix}nsfw
-┃ ${prefix}antilink
-┃ ${prefix}kick
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '4': `
-╭━━━〔 🔎 SEARCH MENU 〕━━━⬣
-┃ ${prefix}weather
-┃ ${prefix}news
-┃ ${prefix}npm
-┃ ${prefix}movie
-┃ ${prefix}anime
-┃ ${prefix}song
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '5': `
-╭━━━〔 📥 DOWNLOAD MENU 〕━━━⬣
-┃ ${prefix}play
-┃ ${prefix}video
-┃ ${prefix}tiktok
-┃ ${prefix}instagram
-┃ ${prefix}ytmp3
-┃ ${prefix}ytmp4
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '6': `
-╭━━━〔 🛠️ TOOLS MENU 〕━━━⬣
-┃ ${prefix}sticker
-┃ ${prefix}tourl
-┃ ${prefix}toimg
-┃ ${prefix}translate
-┃ ${prefix}tts
-┃ ${prefix}qr
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '7': `
-╭━━━〔 🎭 FUN MENU 〕━━━⬣
-┃ ${prefix}quote
-┃ ${prefix}joke
-┃ ${prefix}fact
-┃ ${prefix}truth
-┃ ${prefix}dare
-┃ ${prefix}ai
-╰━━━━━━━━━━━━━━━━━━⬣
-`
-            }
-
-            const response =
-                menus[text]
-
-            if (!response) {
-                return
-            }
-
-            //========================================
-            // SEND GROUP MENU
-            //========================================
-
-            await sock.sendMessage(
-                from,
-                {
-                    text: response
-                },
-                {
-                    quoted: msg
-                }
-            )
-
-            console.log(
-                `✅ MENU REPLY: ${text}`
-            )
-
-        } catch (error) {
+        } catch (err) {
 
             console.log(
                 '❌ MENU REPLY ERROR:'
             )
 
-            console.log(error)
+            console.log(err)
         }
+
+        //========================================
+        // PREFIX
+        //========================================
+
+        const prefix =
+            settings.prefix || '.'
+
+        if (
+            !body.startsWith(prefix)
+        ) {
+            return
+        }
+
+        //========================================
+        // PARSE COMMAND
+        //========================================
+
+        const args = body
+            .slice(prefix.length)
+            .trim()
+            .split(/\s+/)
+
+        const commandName =
+            args.shift()?.toLowerCase()
+
+        if (!commandName) {
+            return
+        }
+
+        console.log(
+            `📥 RECEIVED COMMAND: ${commandName}`
+        )
+
+        const command =
+            commands.get(commandName)
+
+        //========================================
+        // COMMAND NOT FOUND
+        //========================================
+
+        if (!command) {
+
+            console.log(
+                `❌ UNKNOWN COMMAND: ${commandName}`
+            )
+
+            return
+        }
+
+        //========================================
+        // DATABASE
+        //========================================
+
+        let userData = {}
+        let groupData = {}
+
+        try {
+
+            userData =
+                getUser(normalizedSender) || {}
+
+            if (isGroup) {
+
+                groupData =
+                    getGroup(from) || {}
+            }
+
+        } catch (dbError) {
+
+            console.log(
+                '❌ DATABASE ERROR:'
+            )
+
+            console.log(dbError)
+        }
+
+        //========================================
+        // MAINTENANCE
+        //========================================
+
+        if (
+            settings.maintenance === true &&
+            normalizedSender !==
+            `${settings.ownerNumber}@s.whatsapp.net`
+        ) {
+
+            return await sock.sendMessage(
+                from,
+                {
+                    text:
+                        '🚧 Bot under maintenance.'
+                },
+                {
+                    quoted: msg
+                }
+            )
+        }
+
+        //========================================
+        // OWNER ONLY
+        //========================================
+
+        if (
+            command.owner === true &&
+            normalizedSender !==
+            `${settings.ownerNumber}@s.whatsapp.net`
+        ) {
+
+            return await sock.sendMessage(
+                from,
+                {
+                    text:
+                        '❌ Owner only command.'
+                },
+                {
+                    quoted: msg
+                }
+            )
+        }
+
+        //========================================
+        // GROUP ONLY
+        //========================================
+
+        if (
+            command.group === true &&
+            !isGroup
+        ) {
+
+            return await sock.sendMessage(
+                from,
+                {
+                    text:
+                        '❌ Group only command.'
+                },
+                {
+                    quoted: msg
+                }
+            )
+        }
+
+        //========================================
+        // PRIVATE ONLY
+        //========================================
+
+        if (
+            command.private === true &&
+            isGroup
+        ) {
+
+            return await sock.sendMessage(
+                from,
+                {
+                    text:
+                        '❌ Private only command.'
+                },
+                {
+                    quoted: msg
+                }
+            )
+        }
+
+        //========================================
+        // BANNED
+        //========================================
+
+        if (
+            userData?.banned === true
+        ) {
+
+            return await sock.sendMessage(
+                from,
+                {
+                    text:
+                        '❌ You are banned.'
+                },
+                {
+                    quoted: msg
+                }
+            )
+        }
+
+        //========================================
+        // EXECUTE COMMAND SAFELY
+        //========================================
+
+        try {
+
+            if (
+                typeof command.execute !==
+                'function'
+            ) {
+
+                console.log(
+                    `❌ INVALID EXECUTE: ${commandName}`
+                )
+
+                return
+            }
+
+            await command.execute(
+                sock,
+                msg,
+                args,
+                {
+                    userData,
+                    groupData,
+                    isGroup,
+                    sender:
+                        normalizedSender,
+                    prefix
+                }
+            )
+
+            console.log(
+                `✅ SUCCESS: ${commandName}`
+            )
+
+        } catch (cmdError) {
+
+            console.log(
+                `❌ COMMAND CRASHED: ${commandName}`
+            )
+
+            console.log(cmdError)
+
+            try {
+
+                await sock.sendMessage(
+                    from,
+                    {
+                        text:
+                            '❌ Command execution failed.'
+                    },
+                    {
+                        quoted: msg
+                    }
+                )
+
+            } catch {}
+        }
+
+    } catch (err) {
+
+        console.log(
+            '❌ COMMAND HANDLER ERROR:'
+        )
+
+        console.log(err)
     }
+}
+
+//========================================
+// EXPORTS
+//========================================
+
+module.exports = {
+
+    handleCommand,
+
+    reloadCommands:
+        loadCommands,
+
+    commands
 }
