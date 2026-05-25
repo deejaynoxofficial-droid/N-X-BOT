@@ -126,10 +126,7 @@ function loadCommands() {
                     for (const alias of command.aliases) {
 
                         if (
-                            typeof alias === 'string' &&
-                            !commands.has(
-                                alias.toLowerCase()
-                            )
+                            typeof alias === 'string'
                         ) {
 
                             commands.set(
@@ -327,24 +324,46 @@ async function handleCommand(
         }
 
         //========================================
-        // SAFE MENU REPLY HANDLER ONLY
+        // SAFE MENU REPLY HANDLER
         //========================================
 
         try {
 
-            const menuCommand =
-                commands.get('menu')
+            const quoted =
 
-            if (
-                menuCommand &&
-                typeof menuCommand.replyHandler ===
-                'function'
-            ) {
+                msg.message
+                    ?.extendedTextMessage
+                    ?.contextInfo
+                    ?.stanzaId ||
 
-                await menuCommand.replyHandler(
-                    sock,
-                    msg
-                )
+                msg.message
+                    ?.imageMessage
+                    ?.contextInfo
+                    ?.stanzaId ||
+
+                msg.message
+                    ?.videoMessage
+                    ?.contextInfo
+                    ?.stanzaId ||
+
+                null
+
+            if (quoted) {
+
+                const menuCommand =
+                    commands.get('menu')
+
+                if (
+                    menuCommand &&
+                    typeof menuCommand.replyHandler ===
+                    'function'
+                ) {
+
+                    await menuCommand.replyHandler(
+                        sock,
+                        msg
+                    )
+                }
             }
 
         } catch (err) {
