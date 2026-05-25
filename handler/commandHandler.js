@@ -73,10 +73,6 @@ function loadCommands() {
                     file
                 )
 
-                //========================================
-                // CLEAR CACHE
-                //========================================
-
                 delete require.cache[
                     require.resolve(filePath)
                 ]
@@ -92,11 +88,6 @@ function loadCommands() {
                     !command ||
                     typeof command !== 'object'
                 ) {
-
-                    console.log(
-                        `❌ INVALID COMMAND: ${file}`
-                    )
-
                     continue
                 }
 
@@ -104,11 +95,6 @@ function loadCommands() {
                     !command.name ||
                     typeof command.name !== 'string'
                 ) {
-
-                    console.log(
-                        `❌ MISSING NAME: ${file}`
-                    )
-
                     continue
                 }
 
@@ -116,11 +102,6 @@ function loadCommands() {
                     typeof command.execute !==
                     'function'
                 ) {
-
-                    console.log(
-                        `❌ MISSING EXECUTE: ${file}`
-                    )
-
                     continue
                 }
 
@@ -133,7 +114,7 @@ function loadCommands() {
                 )
 
                 //========================================
-                // LOAD ALIASES
+                // SAFE ALIASES
                 //========================================
 
                 if (
@@ -145,7 +126,10 @@ function loadCommands() {
                     for (const alias of command.aliases) {
 
                         if (
-                            typeof alias === 'string'
+                            typeof alias === 'string' &&
+                            !commands.has(
+                                alias.toLowerCase()
+                            )
                         ) {
 
                             commands.set(
@@ -201,30 +185,49 @@ function getBody(msg) {
         const message =
             msg.message || {}
 
+        //========================================
+        // EPHEMERAL SUPPORT
+        //========================================
+
+        const ephemeral =
+            message?.ephemeralMessage
+                ?.message || {}
+
+        const viewOnce =
+            message?.viewOnceMessage
+                ?.message || {}
+
+        const msgData =
+            Object.keys(ephemeral).length
+                ? ephemeral
+                : Object.keys(viewOnce).length
+                ? viewOnce
+                : message
+
         const msgType =
-            Object.keys(message)[0]
+            Object.keys(msgData)[0]
 
         const content =
-            message[msgType] || {}
+            msgData[msgType] || {}
 
         return (
 
-            message.conversation ||
+            msgData.conversation ||
 
-            message.extendedTextMessage?.text ||
+            msgData.extendedTextMessage?.text ||
 
-            message.imageMessage?.caption ||
+            msgData.imageMessage?.caption ||
 
-            message.videoMessage?.caption ||
+            msgData.videoMessage?.caption ||
 
-            message.buttonsResponseMessage
+            msgData.buttonsResponseMessage
                 ?.selectedButtonId ||
 
-            message.listResponseMessage
+            msgData.listResponseMessage
                 ?.singleSelectReply
                 ?.selectedRowId ||
 
-            message.templateButtonReplyMessage
+            msgData.templateButtonReplyMessage
                 ?.selectedId ||
 
             content.text ||
@@ -255,10 +258,6 @@ async function handleCommand(
 ) {
 
     try {
-
-        //========================================
-        // SAFE CHECKS
-        //========================================
 
         if (
             !sock ||
@@ -314,7 +313,7 @@ async function handleCommand(
                 : sender
 
         //========================================
-        // MESSAGE BODY
+        // GET BODY
         //========================================
 
         const body =
@@ -328,32 +327,33 @@ async function handleCommand(
         }
 
         //========================================
-        // RUN REPLY HANDLERS
+        // SAFE MENU REPLY HANDLER ONLY
         //========================================
 
-        for (const cmd of commands.values()) {
+        try {
 
-            try {
+            const menuCommand =
+                commands.get('menu')
 
-                if (
-                    typeof cmd.replyHandler ===
-                    'function'
-                ) {
+            if (
+                menuCommand &&
+                typeof menuCommand.replyHandler ===
+                'function'
+            ) {
 
-                    await cmd.replyHandler(
-                        sock,
-                        msg
-                    )
-                }
-
-            } catch (err) {
-
-                console.log(
-                    `❌ REPLY HANDLER ERROR (${cmd.name})`
+                await menuCommand.replyHandler(
+                    sock,
+                    msg
                 )
-
-                console.log(err)
             }
+
+        } catch (err) {
+
+            console.log(
+                '❌ MENU REPLY ERROR:'
+            )
+
+            console.log(err)
         }
 
         //========================================
@@ -370,7 +370,7 @@ async function handleCommand(
         }
 
         //========================================
-        // COMMAND PARSE
+        // PARSE COMMAND
         //========================================
 
         const args = body
@@ -398,20 +398,11 @@ async function handleCommand(
                 `❌ UNKNOWN COMMAND: ${commandName}`
             )
 
-            return await sock.sendMessage(
-                from,
-                {
-                    text:
-                        '❌ Command not found.'
-                },
-                {
-                    quoted: msg
-                }
-            )
+            return
         }
 
         //========================================
-        // DATABASE SAFE
+        // DATABASE
         //========================================
 
         let userData = {}
@@ -524,7 +515,7 @@ async function handleCommand(
         }
 
         //========================================
-        // BANNED USER
+        // BANNED
         //========================================
 
         if (
@@ -544,29 +535,32 @@ async function handleCommand(
         }
 
         //========================================
-        // LOG COMMAND
+        // LOG
         //========================================
 
         console.log(
-            `▶ RUNNING COMMAND: ${commandName}`
+            `▶ RUNNING: ${commandName}`
         )
 
         //========================================
-        // EXECUTE COMMAND
+        // EXECUTE
         //========================================
 
-        await command.execute(
-            sock,
-            msg,
-            args,
-            {
-                userData,
-                groupData,
-                isGroup,
-                sender:
-                    normalizedSender,
-                prefix
-            }
+        await Promise.resolve(
+
+            command.execute(
+                sock,
+                msg,
+                args,
+                {
+                    userData,
+                    groupData,
+                    isGroup,
+                    sender:
+                        normalizedSender,
+                    prefix
+                }
+            )
         )
 
     } catch (err) {
