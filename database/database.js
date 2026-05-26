@@ -1,38 +1,48 @@
 const fs = require('fs')
-
 const path = require('path')
 
-const settings =
-    require('../settings')
+const settings = require('../settings')
 
 //========================================
 // DATABASE PATH
 //========================================
 
 const databasePath =
-    settings.database
+    settings.database ||
+    './database/database.json'
+
+//========================================
+// DATABASE FOLDER
+//========================================
+
+const databaseFolder =
+    path.dirname(databasePath)
 
 //========================================
 // CREATE DATABASE FOLDER
 //========================================
 
-const databaseFolder =
-    path.dirname(
-        databasePath
+try {
+
+    if (
+        !fs.existsSync(databaseFolder)
+    ) {
+
+        fs.mkdirSync(
+            databaseFolder,
+            {
+                recursive: true
+            }
+        )
+    }
+
+} catch (err) {
+
+    console.log(
+        '❌ DATABASE FOLDER ERROR:'
     )
 
-if (
-    !fs.existsSync(
-        databaseFolder
-    )
-) {
-
-    fs.mkdirSync(
-        databaseFolder,
-        {
-            recursive: true
-        }
-    )
+    console.log(err)
 }
 
 //========================================
@@ -78,9 +88,6 @@ const defaultDatabase = {
             autoViewOnce:
                 settings.antiViewOnce || false,
 
-            autoViewOnceMode:
-                'private',
-
             antiCall:
                 settings.antiCall || false
         },
@@ -89,26 +96,8 @@ const defaultDatabase = {
 
             numbers:
                 settings.ownerNumbers || []
-        },
-
-        apis: {
-
-            neoxr: '',
-
-            apiKey: ''
         }
     },
-
-    chatbot: {
-
-        enabled: true
-    },
-
-    broadcasts: [],
-
-    downloads: {},
-
-    stickers: {},
 
     statistics: {
 
@@ -131,9 +120,7 @@ function createDatabase() {
     try {
 
         if (
-            !fs.existsSync(
-                databasePath
-            )
+            !fs.existsSync(databasePath)
         ) {
 
             fs.writeFileSync(
@@ -148,17 +135,17 @@ function createDatabase() {
             )
 
             console.log(
-                '✅ Database Created'
+                '✅ DATABASE CREATED'
             )
         }
 
-    } catch (error) {
+    } catch (err) {
 
         console.log(
             '❌ CREATE DATABASE ERROR:'
         )
 
-        console.log(error)
+        console.log(err)
     }
 }
 
@@ -172,20 +159,44 @@ function loadDatabase() {
 
     try {
 
-        const raw =
+        //========================================
+        // FILE NOT FOUND
+        //========================================
 
+        if (
+            !fs.existsSync(databasePath)
+        ) {
+
+            saveDatabase(
+                defaultDatabase
+            )
+
+            return defaultDatabase
+        }
+
+        //========================================
+        // READ FILE
+        //========================================
+
+        const raw =
             fs.readFileSync(
                 databasePath,
                 'utf8'
             )
 
+        //========================================
         // EMPTY FILE FIX
+        //========================================
 
         if (
             !raw ||
             raw.trim() === ''
         ) {
 
+            console.log(
+                '⚠️ EMPTY DATABASE FIXED'
+            )
+
             saveDatabase(
                 defaultDatabase
             )
@@ -193,15 +204,40 @@ function loadDatabase() {
             return defaultDatabase
         }
 
-        const data =
-            JSON.parse(raw)
+        //========================================
+        // SAFE JSON PARSE
+        //========================================
 
-        // INVALID FIX
+        let data
+
+        try {
+
+            data =
+                JSON.parse(raw)
+
+        } catch (parseError) {
+
+            console.log(
+                '❌ DATABASE CORRUPTED'
+            )
+
+            console.log(parseError)
+
+            saveDatabase(
+                defaultDatabase
+            )
+
+            return defaultDatabase
+        }
+
+        //========================================
+        // INVALID OBJECT FIX
+        //========================================
 
         if (
             !data ||
             typeof data !==
-                'object'
+            'object'
         ) {
 
             saveDatabase(
@@ -211,7 +247,9 @@ function loadDatabase() {
             return defaultDatabase
         }
 
+        //========================================
         // SAFE STRUCTURE
+        //========================================
 
         data.users =
             data.users || {}
@@ -227,23 +265,13 @@ function loadDatabase() {
 
         return data
 
-    } catch (error) {
+    } catch (err) {
 
         console.log(
-            '❌ DATABASE LOAD ERROR:'
+            '❌ LOAD DATABASE ERROR:'
         )
 
-        console.log(error)
-
-        // AUTO REPAIR
-
-        try {
-
-            saveDatabase(
-                defaultDatabase
-            )
-
-        } catch {}
+        console.log(err)
 
         return defaultDatabase
     }
@@ -260,8 +288,9 @@ function saveDatabase(data) {
         if (
             !data ||
             typeof data !==
-                'object'
+            'object'
         ) {
+
             return false
         }
 
@@ -278,13 +307,13 @@ function saveDatabase(data) {
 
         return true
 
-    } catch (error) {
+    } catch (err) {
 
         console.log(
-            '❌ DATABASE SAVE ERROR:'
+            '❌ SAVE DATABASE ERROR:'
         )
 
-        console.log(error)
+        console.log(err)
 
         return false
     }
@@ -301,13 +330,18 @@ function getUser(id) {
         if (
             !id ||
             typeof id !==
-                'string'
+            'string'
         ) {
+
             return null
         }
 
         const db =
             loadDatabase()
+
+        //========================================
+        // CREATE USER
+        //========================================
 
         if (
             !db.users[id]
@@ -336,13 +370,13 @@ function getUser(id) {
 
         return db.users[id]
 
-    } catch (error) {
+    } catch (err) {
 
         console.log(
             '❌ GET USER ERROR:'
         )
 
-        console.log(error)
+        console.log(err)
 
         return null
     }
@@ -359,13 +393,18 @@ function getGroup(id) {
         if (
             !id ||
             typeof id !==
-                'string'
+            'string'
         ) {
+
             return null
         }
 
         const db =
             loadDatabase()
+
+        //========================================
+        // CREATE GROUP
+        //========================================
 
         if (
             !db.groups[id]
@@ -386,34 +425,14 @@ function getGroup(id) {
 
                 adminsOnly: false,
 
-                groupmode: 'open',
+                antiLink:
+                    settings.antiLink || false,
 
-                antiLink: {
+                antiBadword:
+                    settings.antiBadword || false,
 
-                    enabled:
-                        settings.antiLink || false,
-
-                    mode: 'delete'
-                },
-
-                antiBadWord: {
-
-                    enabled:
-                        settings.antiBadword || false,
-
-                    mode: 'delete'
-                },
-
-                antiSpam: {
-
-                    enabled:
-                        settings.antiSpam || false,
-
-                    limit:
-                        settings.spamLimit || 5
-                },
-
-                warnings: {}
+                antiSpam:
+                    settings.antiSpam || false
             }
 
             saveDatabase(db)
@@ -421,13 +440,13 @@ function getGroup(id) {
 
         return db.groups[id]
 
-    } catch (error) {
+    } catch (err) {
 
         console.log(
             '❌ GET GROUP ERROR:'
         )
 
-        console.log(error)
+        console.log(err)
 
         return null
     }
@@ -437,9 +456,7 @@ function getGroup(id) {
 // UPDATE STATS
 //========================================
 
-function updateStats(
-    type
-) {
+function updateStats(type) {
 
     try {
 
@@ -464,13 +481,13 @@ function updateStats(
 
         saveDatabase(db)
 
-    } catch (error) {
+    } catch (err) {
 
         console.log(
             '❌ UPDATE STATS ERROR:'
         )
 
-        console.log(error)
+        console.log(err)
     }
 }
 
@@ -489,4 +506,4 @@ module.exports = {
     getGroup,
 
     updateStats
-                }
+}
