@@ -5,7 +5,10 @@ require('dotenv').config()
 //========================================
 
 const express = require('express')
-const app = express()
+const fs = require('fs')
+const path = require('path')
+const axios = require('axios')
+const pino = require('pino')
 
 const {
     default: makeWASocket,
@@ -14,11 +17,6 @@ const {
     fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
-const pino = require('pino')
-const fs = require('fs')
-const path = require('path')
-const axios = require('axios')
-
 const chalkImport =
     require('chalk')
 
@@ -26,56 +24,43 @@ const chalk =
     chalkImport.default ||
     chalkImport
 
-const settings =
-    require('./settings')
-
-const {
-    handleCommand
-} = require('./handler/commandHandler')
-
 //========================================
-// OPTIONAL LISTENER
+// SETTINGS
 //========================================
 
-let handleListeners =
-    async () => {}
+const settings = {
 
-try {
+    sessionFolder:
+        './sessions',
 
-    const listenerHandler =
-        require('./handler/listenerHandler')
+    tempFolder:
+        './temp',
 
-    if (
-        typeof listenerHandler
-            .handleListeners ===
-        'function'
-    ) {
+    logsFolder:
+        './logs',
 
-        handleListeners =
-            listenerHandler
-                .handleListeners
-    }
+    autoRead: false,
 
-} catch {
+    autoTyping: false,
 
-    console.log(
-        '⚠️ LISTENER HANDLER NOT FOUND'
-    )
+    autoRecording: false
 }
-
-//========================================
-// GLOBALS
-//========================================
-
-let reconnecting = false
-let activeSocket = null
-let sock = null
-
-const sessions = new Map()
 
 //========================================
 // EXPRESS
 //========================================
+
+const app = express()
+
+app.use(
+    express.json()
+)
+
+app.use(
+    express.urlencoded({
+        extended: true
+    })
+)
 
 app.use(
     express.static(
@@ -87,6 +72,13 @@ app.use(
 )
 
 //========================================
+// GLOBALS
+//========================================
+
+let sock = null
+let reconnecting = false
+
+//========================================
 // CREATE FOLDERS
 //========================================
 
@@ -96,9 +88,9 @@ function createFolders() {
 
         settings.sessionFolder,
 
-        './sessions',
+        settings.tempFolder,
 
-        './temp'
+        settings.logsFolder
     ]
 
     for (const folder of folders) {
@@ -117,109 +109,13 @@ function createFolders() {
                 )
             }
 
-        } catch {}
-    }
-}
+        } catch (err) {
 
-//========================================
-// CREATE PAIR SOCKET
-//========================================
-
-async function createPairSocket(
-    phone
-) {
-
-    try {
-
-        const sessionPath =
-            path.join(
-                __dirname,
-                'sessions',
-                phone
-            )
-
-        if (
-            !fs.existsSync(sessionPath)
-        ) {
-
-            fs.mkdirSync(
-                sessionPath,
-                {
-                    recursive: true
-                }
+            console.log(
+                'FOLDER ERROR:',
+                err
             )
         }
-
-        const {
-            state,
-            saveCreds
-        } =
-        await useMultiFileAuthState(
-            sessionPath
-        )
-
-        const {
-            version
-        } =
-        await fetchLatestBaileysVersion()
-
-        const pairSock =
-            makeWASocket({
-
-                auth: state,
-
-                version,
-
-                logger: pino({
-                    level: 'silent'
-                }),
-
-                browser: [
-                    'Ubuntu',
-                    'Chrome',
-                    '20.0.04'
-                ],
-
-                printQRInTerminal: false
-            })
-
-        pairSock.ev.on(
-            'creds.update',
-            saveCreds
-        )
-
-        sessions.set(
-            phone,
-            pairSock
-        )
-
-        pairSock.ev.on(
-            'connection.update',
-            ({
-                connection
-            }) => {
-
-                if (
-                    connection === 'open'
-                ) {
-
-                    console.log(
-                        `✅ PAIR CONNECTED: ${phone}`
-                    )
-                }
-            }
-        )
-
-        return pairSock
-
-    } catch (err) {
-
-        console.log(
-            'PAIR SOCKET ERROR:',
-            err
-        )
-
-        return null
     }
 }
 
@@ -247,7 +143,10 @@ async function startBot() {
         await fetchLatestBaileysVersion()
 
         console.log(
-            `USING VERSION: ${version}`
+
+            chalk.cyan(
+                `USING VERSION: ${version}`
+            )
         )
 
         sock = makeWASocket({
@@ -260,16 +159,34 @@ async function startBot() {
                 level: 'silent'
             }),
 
+            printQRInTerminal: false,
+
             browser: [
+
                 'Ubuntu',
+
                 'Chrome',
+
                 '20.0.04'
             ],
 
-            printQRInTerminal: true
+            connectTimeoutMs:
+                60000,
+
+            keepAliveIntervalMs:
+                10000,
+
+            defaultQueryTimeoutMs:
+                60000,
+
+            syncFullHistory: false,
+
+            markOnlineOnConnect: false
         })
 
-        activeSocket = sock
+        //========================================
+        // SAVE CREDS
+        //========================================
 
         sock.ev.on(
             'creds.update',
@@ -277,11 +194,13 @@ async function startBot() {
         )
 
         //========================================
-        // MESSAGE EVENT
+        // MESSAGE LOGS
         //========================================
 
         sock.ev.on(
+
             'messages.upsert',
+
             async ({
                 messages
             }) => {
@@ -291,10 +210,11 @@ async function startBot() {
                     const msg =
                         messages?.[0]
 
-                    if (
-                        !msg ||
-                        !msg.message
-                    ) {
+                    if (!msg) {
+                        return
+                    }
+
+                    if (!msg.message) {
                         return
                     }
 
@@ -302,6 +222,7 @@ async function startBot() {
                         msg.key?.remoteJid
 
                     if (
+                        !from ||
                         from ===
                         'status@broadcast'
                     ) {
@@ -321,21 +242,38 @@ async function startBot() {
                             ?.imageMessage
                             ?.caption ||
 
+                        msg.message
+                            ?.videoMessage
+                            ?.caption ||
+
                         ''
 
+                    if (!body) {
+                        return
+                    }
+
                     console.log(
-                        `📩 ${body || 'NO TEXT'}`
+                        chalk.green(
+                            `📩 MESSAGE: ${body}`
+                        )
                     )
 
-                    await handleListeners(
-                        sock,
-                        messages
-                    )
+                    //========================================
+                    // AUTO READ
+                    //========================================
 
-                    await handleCommand(
-                        sock,
-                        msg
-                    )
+                    if (
+                        settings.autoRead
+                    ) {
+
+                        try {
+
+                            await sock.readMessages([
+                                msg.key
+                            ])
+
+                        } catch {}
+                    }
 
                 } catch (err) {
 
@@ -352,66 +290,128 @@ async function startBot() {
         //========================================
 
         sock.ev.on(
+
             'connection.update',
-            ({
+
+            async ({
                 connection,
                 lastDisconnect
             }) => {
 
-                const statusCode =
-                    lastDisconnect
-                        ?.error
-                        ?.output
-                        ?.statusCode
+                try {
 
-                if (
-                    connection ===
-                    'connecting'
-                ) {
+                    const statusCode =
+                        lastDisconnect
+                            ?.error
+                            ?.output
+                            ?.statusCode
 
-                    console.log(
-                        'CONNECTING...'
-                    )
-                }
-
-                if (
-                    connection ===
-                    'open'
-                ) {
-
-                    reconnecting =
-                        false
-
-                    console.log(
-                        '✅ BOT CONNECTED'
-                    )
-                }
-
-                if (
-                    connection ===
-                    'close'
-                ) {
-
-                    console.log(
-                        `❌ CLOSED: ${statusCode}`
-                    )
+                    //========================================
+                    // CONNECTING
+                    //========================================
 
                     if (
-                        reconnecting
+                        connection ===
+                        'connecting'
                     ) {
-                        return
+
+                        console.log(
+
+                            chalk.yellow(
+                                'CONNECTING TO WHATSAPP...'
+                            )
+                        )
                     }
 
-                    reconnecting =
-                        true
+                    //========================================
+                    // CONNECTED
+                    //========================================
 
-                    setTimeout(
-                        () => {
+                    if (
+                        connection ===
+                        'open'
+                    ) {
 
-                            startBot()
+                        reconnecting =
+                            false
 
-                        },
-                        5000
+                        console.log(
+
+                            chalk.green(
+                                '✅ BOT CONNECTED'
+                            )
+                        )
+
+                        console.log(
+
+                            chalk.cyan(
+                                `CONNECTED AS: ${sock.user?.id}`
+                            )
+                        )
+                    }
+
+                    //========================================
+                    // CLOSED
+                    //========================================
+
+                    if (
+                        connection ===
+                        'close'
+                    ) {
+
+                        console.log(
+
+                            chalk.red(
+                                `❌ CONNECTION CLOSED: ${statusCode}`
+                            )
+                        )
+
+                        if (
+                            statusCode ===
+                            DisconnectReason.loggedOut
+                        ) {
+
+                            console.log(
+
+                                chalk.red(
+                                    'SESSION LOGGED OUT'
+                                )
+                            )
+
+                            return
+                        }
+
+                        if (
+                            reconnecting
+                        ) {
+                            return
+                        }
+
+                        reconnecting =
+                            true
+
+                        console.log(
+
+                            chalk.yellow(
+                                'RECONNECTING...'
+                            )
+                        )
+
+                        setTimeout(
+                            () => {
+
+                                startBot()
+
+                            },
+                            5000
+                        )
+                    }
+
+                } catch (err) {
+
+                    console.log(
+                        'CONNECTION ERROR:',
+                        err
                     )
                 }
             }
@@ -423,15 +423,26 @@ async function startBot() {
             'START BOT ERROR:',
             err
         )
+
+        setTimeout(
+            () => {
+
+                startBot()
+
+            },
+            5000
+        )
     }
 }
 
 //========================================
-// PAIR ROUTE
+// PAIR CODE API
 //========================================
 
 app.get(
+
     '/pair',
+
     async (req, res) => {
 
         try {
@@ -442,9 +453,11 @@ app.get(
             if (!number) {
 
                 return res.json({
+
                     status: false,
+
                     message:
-                        'ENTER NUMBER'
+                        'Number required'
                 })
             }
 
@@ -454,43 +467,54 @@ app.get(
                     ''
                 )
 
-            console.log(
-                `PAIR REQUEST: ${cleanNumber}`
-            )
-
-            const pairSock =
-                await createPairSocket(
-                    cleanNumber
-                )
-
-            if (!pairSock) {
+            if (
+                cleanNumber.length < 8
+            ) {
 
                 return res.json({
+
                     status: false,
+
                     message:
-                        'SOCKET FAILED'
+                        'Invalid number'
                 })
             }
 
-            await new Promise(
-                resolve =>
-                    setTimeout(
-                        resolve,
-                        5000
-                    )
-            )
+            //========================================
+            // WAIT FOR SOCKET
+            //========================================
+
+            if (!sock) {
+
+                return res.json({
+
+                    status: false,
+
+                    message:
+                        'Socket not ready'
+                })
+            }
+
+            //========================================
+            // GENERATE CODE
+            //========================================
 
             const code =
-                await pairSock.requestPairingCode(
+                await sock.requestPairingCode(
                     cleanNumber
                 )
 
             console.log(
-                `PAIR CODE: ${code}`
+
+                chalk.green(
+                    `PAIR CODE FOR ${cleanNumber}: ${code}`
+                )
             )
 
             return res.json({
+
                 status: true,
+
                 code
             })
 
@@ -502,9 +526,11 @@ app.get(
             )
 
             return res.json({
+
                 status: false,
+
                 message:
-                    'PAIRING FAILED'
+                    'Pairing failed'
             })
         }
     }
@@ -525,6 +551,36 @@ app.get(
 )
 
 //========================================
+// KEEP ALIVE
+//========================================
+
+if (
+    process.env.RENDER_EXTERNAL_URL
+) {
+
+    setInterval(
+
+        async () => {
+
+            try {
+
+                await axios.get(
+                    process.env
+                        .RENDER_EXTERNAL_URL
+                )
+
+                console.log(
+                    'KEEP ALIVE SUCCESS'
+                )
+
+            } catch {}
+        },
+
+        240000
+    )
+}
+
+//========================================
 // START SERVER
 //========================================
 
@@ -532,11 +588,16 @@ const PORT =
     process.env.PORT || 3000
 
 app.listen(
+
     PORT,
+
     () => {
 
         console.log(
-            `SERVER RUNNING ON ${PORT}`
+
+            chalk.green(
+                `SERVER RUNNING ON ${PORT}`
+            )
         )
 
         startBot()
