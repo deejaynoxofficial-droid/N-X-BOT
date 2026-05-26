@@ -1,194 +1,822 @@
-const { 
-    makeWASocket, 
-    useMultiFileAuthState, 
+require('dotenv').config()
+
+//========================================
+// IMPORTS
+//========================================
+
+const express = require('express')
+const fs = require('fs')
+const path = require('path')
+const pino = require('pino')
+const axios = require('axios')
+
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
     DisconnectReason,
-    fetchLatestBaileysVersion,
-    getContentType
-} = require('@whiskeysockets/baileys');
-const { Boom } = require('@hapi/boom');
-const { File } = require('megajs')
-const pino = require('pino');
-const path = require('path');
-const fs = require('fs');
-const fetch = require('node-fetch');
-const axios = require('axios');
-const os = require('os');
-const { exec } = require('child_process');
+    fetchLatestBaileysVersion
+} = require('@whiskeysockets/baileys')
 
-const config = require('./config.js');
+const chalkImport =
+    require('chalk')
 
-const express = require("express")
-const app = express()
-const port = process.env.PORT || 9090
+const chalk =
+    chalkImport.default ||
+    chalkImport
 
-// CREATE SESSION ID SAVR FOLDER
-const SESSION_DIR = 'auth_info_baileys';
-if (!fs.existsSync("./" + SESSION_DIR)) {
-        fs.mkdirSync("./" + SESSION_DIR, { recursive: true });
-        console.log("📂 Created session id save folder");
+//========================================
+// SAFE OPTIONAL MODULES
+//========================================
+
+let mega = null
+
+try {
+
+    mega = require('megajs')
+
+    console.log(
+        '✅ MEGAJS LOADED'
+    )
+
+} catch {
+
+    console.log(
+        '⚠️ MEGAJS NOT INSTALLED'
+    )
 }
 
-// SESSION ID DOWNLOAD PATH BASE64, MEGA
-const sessionFilePath = path.join(__dirname, SESSION_DIR, 'creds.json');
-const sessionIdSandipa = config.SESSION_ID.split(config.SESSION_NAME)[1];
+//========================================
+// SETTINGS
+//========================================
 
-if (!fs.existsSync(sessionFilePath)) {
-    if (!config.SESSION_ID) {
-        console.log("┌─────────────────────────┐");
-        console.log("│ PLEASE ADD YOUR SESSION ID 😒");
-        console.log("└─────────────────────────┘")
+const settings =
+    require('./settings')
+
+//========================================
+// HANDLERS
+//========================================
+
+const {
+    handleCommand
+} =
+require('./handler/commandHandler')
+
+let handleListeners =
+    async () => {}
+
+try {
+
+    const listenerHandler =
+        require(
+            './handler/listenerHandler'
+        )
+
+    if (
+        typeof listenerHandler
+            .handleListeners ===
+        'function'
+    ) {
+
+        handleListeners =
+            listenerHandler
+                .handleListeners
     }
-    
-    // Mega, base64 session id working
-    (async () => {
+
+} catch {
+
+    console.log(
+        '⚠️ LISTENER HANDLER NOT FOUND'
+    )
+}
+
+//========================================
+// DATABASE
+//========================================
+
+let getUser =
+    () => {}
+
+let getGroup =
+    () => {}
+
+try {
+
+    const database =
+        require(
+            './database/database'
+        )
+
+    getUser =
+        database.getUser ||
+        (() => {})
+
+    getGroup =
+        database.getGroup ||
+        (() => {})
+
+    console.log(
+        '✅ DATABASE LOADED'
+    )
+
+} catch {
+
+    console.log(
+        '⚠️ DATABASE NOT FOUND'
+    )
+}
+
+//========================================
+// OPTIONAL VIEWONCE
+//========================================
+
+let autoViewOnceHandler =
+    null
+
+try {
+
+    autoViewOnceHandler =
+        require(
+            './handler/autoViewOnce'
+        )
+
+    console.log(
+        '✅ AUTO VIEWONCE LOADED'
+    )
+
+} catch {
+
+    console.log(
+        '⚠️ AUTO VIEWONCE NOT FOUND'
+    )
+}
+
+//========================================
+// EXPRESS
+//========================================
+
+const app = express()
+
+app.use(
+    express.static(
+        path.join(
+            __dirname,
+            'public'
+        )
+    )
+)
+
+app.get(
+    '/',
+    (req, res) => {
+
+        res.sendFile(
+            path.join(
+                __dirname,
+                'public',
+                'index.html'
+            )
+        )
+    }
+)
+
+//========================================
+// GLOBALS
+//========================================
+
+let reconnecting =
+    false
+
+let activeSocket =
+    null
+
+let sock = null
+
+//========================================
+// CREATE FOLDERS
+//========================================
+
+function createFolders() {
+
+    const folders = [
+
+        settings.sessionFolder,
+
+        settings.tempFolder,
+
+        settings.logsFolder,
+
+        './sessions',
+
+        './temp',
+
+        './temp/audio',
+
+        './temp/video',
+
+        './temp/image',
+
+        './temp/sticker',
+
+        './database'
+    ]
+
+    for (const folder of folders) {
+
         try {
-            console.log("📥 Downloading your session id");
-            if (/^[A-Za-z0-9+/=]+$/.test(sessionIdSandipa) && sessionIdSandipa.length > 100) {
-                const decodedData = Buffer.from(sessionIdSandipa, 'base64').toString('utf-8');
-                const sessionData = JSON.parse(decodedData);
-                await fs.promises.writeFile(sessionFilePath, JSON.stringify(sessionData, null, 2));
-            } else if (sessionIdSandipa.includes("#")) {
-                const [fileId, key] = sessionIdSandipa.split('#');
-                const fileUrl = `https://mega.nz/file/${fileId}#${key}`;
-                const filer = File.fromURL(fileUrl);
-                filer.download((err, data) => {
-                    if(err) throw err
-                    fs.writeFileSync(sessionFilePath, data);
-                })
+
+            if (
+                folder &&
+                !fs.existsSync(folder)
+            ) {
+
+                fs.mkdirSync(
+                    folder,
+                    {
+                        recursive: true
+                    }
+                )
+
+                console.log(
+                    `📁 CREATED: ${folder}`
+                )
             }
-            console.log("✅ Session id downloaded");
-        } catch (sesse) {
-            console.error("❌ Sesssion id download error: " + sesse)
+
+        } catch (err) {
+
+            console.log(
+                'FOLDER ERROR:',
+                err
+            )
         }
-        
-    })();
-};
-// ==========
+    }
+}
 
-let socket;
+//========================================
+// START BOT
+//========================================
 
-async function connectToWhatsappTharusha() {
-  try {
-      console.log("⏳ Connecting to whatsapp...");
-      
-      const { state, saveCreds } = await useMultiFileAuthState(__dirname + '/auth_info_baileys/');
-      const { version } = await fetchLatestBaileysVersion()
-      
-      socket = makeWASocket({
-          auth: state,
-          printQRInTerminal: false,
-          logger: pino({ level: 'silent' })
-      });
-      
-      socket.ev.on("connection.update", async (sandipa) => {
-          const { connection, lastDisconnect } = sandipa;
-          
-          if (connection === 'close') {
-              const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-              if (shouldReconnect) {
-                  await connectToWhatsappTharusha()
-              }
-          } else if (connection === 'open') {
-              console.log("┌───────────────────┐");
-              console.log("│ BOT CONNECTED TO WA ✅");
-              console.log("│ creator: @Mr nox Star Bots");
-              console.log("└───────────────────┘");
-              socket.sendMessage(socket.user.id, { image: { url: config.LOGO }, caption: `✅ *Hᴇʟʟᴏ ʙᴏᴛ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴄᴏɴɴᴇᴄᴛᴇᴅ!*` });
-          }
-      });
-      
-      socket.ev.on('creds.update', saveCreds);
-      
-      socket.ev.on("messages.upsert", async (noxstar) => {
-          const msg = tharusha.messages[0];
-          if (!msg.message) return;
-          
-          const from = msg.key.remoteJid;
-          const type = getContentType(msg.message);
-          const body = (type === 'conversation') ? msg.message.conversation : (type === 'extendedTextMessage') ? msg.message.extendedTextMessage.text : (type == 'imageMessage') && msg.message.imageMessage.caption ? msg.message.imageMessage.caption : (type == 'videoMessage') && msg.message.videoMessage.caption ? msg.message.videoMessage.caption : '';
-          const quoted = type == 'extendedTextMessage' && msg.message.extendedTextMessage.contextInfo != null ? msg.message.extendedTextMessage.contextInfo.quotedMessage || [] : [];
-          const args = body.trim().split(/ +/).slice(1)
-          const query = args.join(' ')
-          const prefix = config.PREFIX || ".";
-          const isCmd = body.startsWith(prefix);
-          const command = isCmd ? body.slice(prefix.length).trim().split(' ')[0].toLowerCase() : "";
-          
-          switch (command) {
-              // Menu Command
-              case 'list':
-              case 'menu': {
-                  try {
-                      await socket.sendMessage(from, { react: { text: "📂", key: msg.key}});
-                      
-                      const data = fs.readFileSync('./commandslist.json', 'utf8');
-                      const categories = JSON.parse(data);
-                      
-                      let menuMsg = "*📜 `WHATSAPP BOT COMMAND LIST`*\n\n";
-                      
-                      for (const category in categories) {
-                          menuMsg += `*┌─ ❛❛${category} COMMANDS❟❟ ───┐*\n*│*\n`;
-                          
-                          categories[category].forEach(cmd => {
-                              menuMsg += `*│📍 \`ηαмє:\` ${prefix}${cmd.name}*\n*│📄 \`∂єѕ¢яιρтιση:\` ${cmd.description}*\n*│*\n`;
-                          });
-                          menuMsg += "*└──────────────┘*\n\n";
-                      }
-                      
-                      menuMsg += `${config.FOOTER}`
-                      
-                      await socket.sendMessage(from, {text: menuMsg}, {quoted: msg});
-                      
-                  } catch (menue) {
-                      console.error("❌ Menu command error: " + menue)
-                  }
-                  break;
-              }
-              
-              // Ping Command
-              case 'pong':
-              case 'speed':
-              case 'ping': {
-                  try {
-                  const start = new Date().getTime();
-                  
-                  const reactionEmojis = ['🔥', '⚡', '🚀', '💨', '🎯', '🎉', '🌟', '💥', '🕐', '🔹'];
-                  const textEmojis = ['💎', '🏆', '⚡️', '🚀', '🌿', '🌠', '🌀', '📍', '️🚀', '✨', '🇱🇰'];
-                  
-                  const reactionEmoji = reactionEmojis[Math.floor(Math.random() * reactionEmojis.length)];
-                  const textEmoji = textEmojis[Math.floor(Math.random() * textEmojis.length)];
-                  
-                  await socket.sendMessage(from, { react: { text: reactionEmoji, key: msg.key}});
-                  
-                  const end = new Date().getTime();
-                  const responseTime = (end - start) / 1000;
-                  
-                  await socket.sendMessage(from, {
-                      text: `*${textEmoji} ρσηg: ${responseTime.toFixed(2)}мѕ*`
-                  });
-                  } catch (pinge) {
-                      console.error("❌ Ping command error: " + pinge)
-                  }
-                  break;
-              }
-              
-              default:
-                
-          }
-      })
-      
-  } catch (connecte) {
-      console.error("❌ Bot connect error: " + connecte)
-  }
-};
+async function startBot() {
 
-app.get('/', (req, res) => {
-  res.send('Whatsapp Bot is Working ✅');
-});
+    try {
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+        //========================================
+        // CLOSE OLD SOCKET
+        //========================================
 
-setTimeout(() => {
-    connectToWhatsappTharusha()
-}, 4000);
+        if (activeSocket) {
+
+            try {
+
+                activeSocket.end()
+
+            } catch {}
+        }
+
+        //========================================
+        // CREATE FOLDERS
+        //========================================
+
+        createFolders()
+
+        //========================================
+        // AUTH STATE
+        //========================================
+
+        const {
+            state,
+            saveCreds
+        } =
+        await useMultiFileAuthState(
+            settings.sessionFolder
+        )
+
+        //========================================
+        // BAILEYS VERSION
+        //========================================
+
+        const {
+            version
+        } =
+        await fetchLatestBaileysVersion()
+
+        console.log(
+
+            chalk.cyan(
+                `USING VERSION: ${version}`
+            )
+        )
+
+        //========================================
+        // CREATE SOCKET
+        //========================================
+
+        sock = makeWASocket({
+
+            auth: state,
+
+            version,
+
+            logger: pino({
+                level: 'silent'
+            }),
+
+            browser: [
+
+                settings.botName ||
+                'NOX-SPARROW',
+
+                'Chrome',
+
+                '1.0.0'
+            ],
+
+            printQRInTerminal: false,
+
+            syncFullHistory: false,
+
+            markOnlineOnConnect: true,
+
+            connectTimeoutMs: 60000,
+
+            keepAliveIntervalMs: 10000,
+
+            defaultQueryTimeoutMs:
+                60000,
+
+            emitOwnEvents: false,
+
+            fireInitQueries: true,
+
+            generateHighQualityLinkPreview:
+                true
+        })
+
+        activeSocket = sock
+
+        //========================================
+        // SAVE CREDS
+        //========================================
+
+        sock.ev.on(
+            'creds.update',
+            saveCreds
+        )
+
+        //========================================
+        // MESSAGE EVENT
+        //========================================
+
+        sock.ev.on(
+
+            'messages.upsert',
+
+            async ({
+                messages
+            }) => {
+
+                try {
+
+                    const msg =
+                        messages?.[0]
+
+                    if (
+                        !msg ||
+                        !msg.message
+                    ) {
+                        return
+                    }
+
+                    const from =
+                        msg.key
+                            ?.remoteJid
+
+                    if (!from) {
+                        return
+                    }
+
+                    //========================================
+                    // IGNORE STATUS
+                    //========================================
+
+                    if (
+                        from ===
+                        'status@broadcast'
+                    ) {
+                        return
+                    }
+
+                    //========================================
+                    // MESSAGE BODY
+                    //========================================
+
+                    const body =
+
+                        msg.message
+                            ?.conversation ||
+
+                        msg.message
+                            ?.extendedTextMessage
+                            ?.text ||
+
+                        msg.message
+                            ?.imageMessage
+                            ?.caption ||
+
+                        msg.message
+                            ?.videoMessage
+                            ?.caption ||
+
+                        msg.message
+                            ?.buttonsResponseMessage
+                            ?.selectedButtonId ||
+
+                        msg.message
+                            ?.listResponseMessage
+                            ?.singleSelectReply
+                            ?.selectedRowId ||
+
+                        ''
+
+                    console.log(
+                        `📩 MESSAGE: ${body || 'NO TEXT'}`
+                    )
+
+                    //========================================
+                    // DATABASE INIT
+                    //========================================
+
+                    try {
+
+                        const sender =
+
+                            msg.key
+                                ?.participant ||
+
+                            from
+
+                        getUser(sender)
+
+                        if (
+                            from.endsWith(
+                                '@g.us'
+                            )
+                        ) {
+
+                            getGroup(from)
+                        }
+
+                    } catch (dbErr) {
+
+                        console.log(
+                            'DATABASE ERROR:',
+                            dbErr
+                        )
+                    }
+
+                    //========================================
+                    // AUTO READ
+                    //========================================
+
+                    if (
+                        settings.autoRead
+                    ) {
+
+                        try {
+
+                            await sock.readMessages([
+                                msg.key
+                            ])
+
+                        } catch {}
+                    }
+
+                    //========================================
+                    // AUTO TYPING
+                    //========================================
+
+                    if (
+                        settings.autoTyping
+                    ) {
+
+                        try {
+
+                            await sock.sendPresenceUpdate(
+                                'composing',
+                                from
+                            )
+
+                        } catch {}
+                    }
+
+                    //========================================
+                    // AUTO RECORDING
+                    //========================================
+
+                    if (
+                        settings.autoRecording
+                    ) {
+
+                        try {
+
+                            await sock.sendPresenceUpdate(
+                                'recording',
+                                from
+                            )
+
+                        } catch {}
+                    }
+
+                    //========================================
+                    // VIEWONCE
+                    //========================================
+
+                    if (
+                        settings.antiViewOnce &&
+                        autoViewOnceHandler
+                    ) {
+
+                        try {
+
+                            await autoViewOnceHandler(
+                                sock,
+                                msg
+                            )
+
+                        } catch (err) {
+
+                            console.log(
+                                'VIEWONCE ERROR:',
+                                err
+                            )
+                        }
+                    }
+
+                    //========================================
+                    // LISTENERS
+                    //========================================
+
+                    try {
+
+                        await handleListeners(
+                            sock,
+                            messages
+                        )
+
+                    } catch (err) {
+
+                        console.log(
+                            'LISTENER ERROR:',
+                            err
+                        )
+                    }
+
+                    //========================================
+                    // COMMANDS
+                    //========================================
+
+                    try {
+
+                        await handleCommand(
+                            sock,
+                            msg
+                        )
+
+                        console.log(
+                            `▶ RUNNING: ${body}`
+                        )
+
+                    } catch (err) {
+
+                        console.log(
+                            'COMMAND ERROR:',
+                            err
+                        )
+                    }
+
+                } catch (err) {
+
+                    console.log(
+                        'MESSAGE UPSERT ERROR:',
+                        err
+                    )
+                }
+            }
+        )
+
+        //========================================
+        // CONNECTION UPDATE
+        //========================================
+
+        sock.ev.on(
+
+            'connection.update',
+
+            ({
+                connection,
+                lastDisconnect
+            }) => {
+
+                try {
+
+                    const statusCode =
+
+                        lastDisconnect
+                            ?.error
+                            ?.output
+                            ?.statusCode
+
+                    //========================================
+                    // CONNECTING
+                    //========================================
+
+                    if (
+                        connection ===
+                        'connecting'
+                    ) {
+
+                        console.log(
+
+                            chalk.yellow(
+                                'CONNECTING...'
+                            )
+                        )
+                    }
+
+                    //========================================
+                    // OPEN
+                    //========================================
+
+                    if (
+                        connection ===
+                        'open'
+                    ) {
+
+                        reconnecting =
+                            false
+
+                        console.log(
+
+                            chalk.green(
+                                '✅ BOT CONNECTED'
+                            )
+                        )
+
+                        console.log(
+
+                            chalk.cyan(
+                                `CONNECTED AS: ${sock.user?.id}`
+                            )
+                        )
+                    }
+
+                    //========================================
+                    // CLOSE
+                    //========================================
+
+                    if (
+                        connection ===
+                        'close'
+                    ) {
+
+                        console.log(
+
+                            chalk.red(
+                                `❌ CONNECTION CLOSED: ${statusCode}`
+                            )
+                        )
+
+                        //========================================
+                        // LOGGED OUT
+                        //========================================
+
+                        if (
+
+                            statusCode ===
+                            DisconnectReason.loggedOut ||
+
+                            statusCode ===
+                            401
+                        ) {
+
+                            console.log(
+
+                                chalk.red(
+                                    'SESSION LOGGED OUT'
+                                )
+                            )
+
+                            return
+                        }
+
+                        //========================================
+                        // PREVENT MULTIPLE RECONNECTS
+                        //========================================
+
+                        if (
+                            reconnecting
+                        ) {
+                            return
+                        }
+
+                        reconnecting =
+                            true
+
+                        console.log(
+
+                            chalk.yellow(
+                                '🔄 RECONNECTING IN 5 SECONDS...'
+                            )
+                        )
+
+                        setTimeout(
+                            () => {
+
+                                startBot()
+
+                            },
+                            5000
+                        )
+                    }
+
+                } catch (err) {
+
+                    console.log(
+                        'CONNECTION ERROR:',
+                        err
+                    )
+                }
+            }
+        )
+
+    } catch (err) {
+
+        console.log(
+            'START BOT ERROR:',
+            err
+        )
+
+        setTimeout(
+            () => {
+
+                startBot()
+
+            },
+            5000
+        )
+    }
+}
+
+//========================================
+// KEEP ALIVE
+//========================================
+
+if (
+    process.env
+        .RENDER_EXTERNAL_URL
+) {
+
+    setInterval(
+
+        async () => {
+
+            try {
+
+                await axios.get(
+                    process.env
+                        .RENDER_EXTERNAL_URL
+                )
+
+                console.log(
+                    'KEEP ALIVE SUCCESS'
+                )
+
+            } catch {}
+        },
+
+        240000
+    )
+}
+
+//========================================
+// START SERVER
+//========================================
+
+const PORT =
+    process.env.PORT || 3000
+
+app.listen(
+
+    PORT,
+
+    () => {
+
+        console.log(
+
+            chalk.green(
+                `SERVER RUNNING ON ${PORT}`
+            )
+        )
+
+        startBot()
+    }
+)
