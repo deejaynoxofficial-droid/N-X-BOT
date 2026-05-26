@@ -5,10 +5,7 @@ require('dotenv').config()
 //========================================
 
 const express = require('express')
-const fs = require('fs')
-const path = require('path')
-const axios = require('axios')
-const pino = require('pino')
+const app = express()
 
 const {
     default: makeWASocket,
@@ -17,6 +14,11 @@ const {
     fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys')
 
+const pino = require('pino')
+const fs = require('fs')
+const path = require('path')
+const axios = require('axios')
+
 const chalkImport =
     require('chalk')
 
@@ -24,43 +26,77 @@ const chalk =
     chalkImport.default ||
     chalkImport
 
+const settings =
+    require('./settings')
+
+const {
+    handleCommand
+} = require('./handler/commandHandler')
+
 //========================================
-// SETTINGS
+// OPTIONAL LISTENER
 //========================================
 
-const settings = {
+let handleListeners =
+    async () => {}
 
-    sessionFolder:
-        './sessions',
+try {
 
-    tempFolder:
-        './temp',
+    const listenerHandler =
+        require('./handler/listenerHandler')
 
-    logsFolder:
-        './logs',
+    if (
+        typeof listenerHandler
+            .handleListeners ===
+        'function'
+    ) {
 
-    autoRead: false,
+        handleListeners =
+            listenerHandler
+                .handleListeners
+    }
 
-    autoTyping: false,
+} catch {
 
-    autoRecording: false
+    console.log(
+        '⚠️ LISTENER HANDLER NOT FOUND'
+    )
 }
+
+//========================================
+// OPTIONAL VIEWONCE
+//========================================
+
+let autoViewOnceHandler =
+    null
+
+try {
+
+    autoViewOnceHandler =
+        require(
+            './handler/autoViewOnce'
+        )
+
+} catch {
+
+    console.log(
+        '⚠️ AUTO VIEWONCE NOT FOUND'
+    )
+}
+
+//========================================
+// GLOBALS
+//========================================
+
+let reconnecting = false
+let activeSocket = null
+let sock = null
+
+const sessions = new Map()
 
 //========================================
 // EXPRESS
 //========================================
-
-const app = express()
-
-app.use(
-    express.json()
-)
-
-app.use(
-    express.urlencoded({
-        extended: true
-    })
-)
 
 app.use(
     express.static(
@@ -72,13 +108,6 @@ app.use(
 )
 
 //========================================
-// GLOBALS
-//========================================
-
-let sock = null
-let reconnecting = false
-
-//========================================
 // CREATE FOLDERS
 //========================================
 
@@ -88,9 +117,17 @@ function createFolders() {
 
         settings.sessionFolder,
 
-        settings.tempFolder,
+        './sessions',
 
-        settings.logsFolder
+        './temp',
+
+        './temp/audio',
+
+        './temp/video',
+
+        './temp/image',
+
+        './temp/sticker'
     ]
 
     for (const folder of folders) {
@@ -98,6 +135,7 @@ function createFolders() {
         try {
 
             if (
+                folder &&
                 !fs.existsSync(folder)
             ) {
 
@@ -120,12 +158,166 @@ function createFolders() {
 }
 
 //========================================
+// CREATE PAIR SOCKET
+//========================================
+
+async function createPairSocket(
+    phone
+) {
+
+    try {
+
+        if (
+            sessions.has(phone)
+        ) {
+
+            return sessions.get(phone)
+        }
+
+        const sessionPath =
+            path.join(
+                __dirname,
+                'sessions',
+                phone
+            )
+
+        if (
+            !fs.existsSync(sessionPath)
+        ) {
+
+            fs.mkdirSync(
+                sessionPath,
+                {
+                    recursive: true
+                }
+            )
+        }
+
+        const {
+            state,
+            saveCreds
+        } =
+        await useMultiFileAuthState(
+            sessionPath
+        )
+
+        const {
+            version
+        } =
+        await fetchLatestBaileysVersion()
+
+        const pairSock =
+            makeWASocket({
+
+                auth: state,
+
+                version,
+
+                logger: pino({
+                    level: 'silent'
+                }),
+
+                browser: [
+                    'Nox Sparrow',
+                    'Chrome',
+                    '1.0.0'
+                ],
+
+                printQRInTerminal: false,
+
+                markOnlineOnConnect: false,
+
+                syncFullHistory: false,
+
+                fireInitQueries: false,
+
+                generateHighQualityLinkPreview: false,
+
+                defaultQueryTimeoutMs: 0,
+
+                connectTimeoutMs: 60000,
+
+                keepAliveIntervalMs: 10000,
+
+                emitOwnEvents: false
+            })
+
+        pairSock.ev.on(
+            'creds.update',
+            saveCreds
+        )
+
+        sessions.set(
+            phone,
+            pairSock
+        )
+
+        pairSock.ev.on(
+            'connection.update',
+            ({
+                connection,
+                lastDisconnect
+            }) => {
+
+                const statusCode =
+                    lastDisconnect
+                        ?.error
+                        ?.output
+                        ?.statusCode
+
+                if (
+                    connection ===
+                    'open'
+                ) {
+
+                    console.log(
+                        `✅ PAIR CONNECTED: ${phone}`
+                    )
+                }
+
+                if (
+                    connection ===
+                    'close'
+                ) {
+
+                    console.log(
+                        `❌ PAIR CLOSED: ${statusCode}`
+                    )
+
+                    sessions.delete(phone)
+                }
+            }
+        )
+
+        return pairSock
+
+    } catch (err) {
+
+        console.log(
+            'PAIR SOCKET ERROR:',
+            err
+        )
+
+        return null
+    }
+}
+
+//========================================
 // START BOT
 //========================================
 
 async function startBot() {
 
     try {
+
+        if (activeSocket) {
+
+            try {
+
+                activeSocket.ws.close()
+
+            } catch {}
+        }
 
         createFolders()
 
@@ -159,30 +351,32 @@ async function startBot() {
                 level: 'silent'
             }),
 
-            printQRInTerminal: false,
-
             browser: [
-
-                'Ubuntu',
-
+                'Nox Sparrow',
                 'Chrome',
-
-                '20.0.04'
+                '1.0.0'
             ],
 
-            connectTimeoutMs:
-                60000,
+            printQRInTerminal: false,
 
-            keepAliveIntervalMs:
-                10000,
-
-            defaultQueryTimeoutMs:
-                60000,
+            markOnlineOnConnect: false,
 
             syncFullHistory: false,
 
-            markOnlineOnConnect: false
+            fireInitQueries: false,
+
+            generateHighQualityLinkPreview: false,
+
+            defaultQueryTimeoutMs: 0,
+
+            connectTimeoutMs: 60000,
+
+            keepAliveIntervalMs: 10000,
+
+            emitOwnEvents: false
         })
+
+        activeSocket = sock
 
         //========================================
         // SAVE CREDS
@@ -194,7 +388,7 @@ async function startBot() {
         )
 
         //========================================
-        // MESSAGE LOGS
+        // MESSAGE EVENT
         //========================================
 
         sock.ev.on(
@@ -221,13 +415,24 @@ async function startBot() {
                     const from =
                         msg.key?.remoteJid
 
+                    if (!from) {
+                        return
+                    }
+
+                    //========================================
+                    // IGNORE STATUS
+                    //========================================
+
                     if (
-                        !from ||
                         from ===
                         'status@broadcast'
                     ) {
                         return
                     }
+
+                    //========================================
+                    // GET BODY
+                    //========================================
 
                     const body =
 
@@ -246,16 +451,19 @@ async function startBot() {
                             ?.videoMessage
                             ?.caption ||
 
+                        msg.message
+                            ?.buttonsResponseMessage
+                            ?.selectedButtonId ||
+
+                        msg.message
+                            ?.listResponseMessage
+                            ?.singleSelectReply
+                            ?.selectedRowId ||
+
                         ''
 
-                    if (!body) {
-                        return
-                    }
-
                     console.log(
-                        chalk.green(
-                            `📩 MESSAGE: ${body}`
-                        )
+                        `📩 ${body || 'NO TEXT'}`
                     )
 
                     //========================================
@@ -275,10 +483,73 @@ async function startBot() {
                         } catch {}
                     }
 
+                    //========================================
+                    // VIEWONCE
+                    //========================================
+
+                    if (
+                        settings.antiViewOnce &&
+                        autoViewOnceHandler
+                    ) {
+
+                        try {
+
+                            await autoViewOnceHandler(
+                                sock,
+                                msg
+                            )
+
+                        } catch (err) {
+
+                            console.log(
+                                'VIEWONCE ERROR:',
+                                err
+                            )
+                        }
+                    }
+
+                    //========================================
+                    // LISTENERS
+                    //========================================
+
+                    try {
+
+                        await handleListeners(
+                            sock,
+                            messages
+                        )
+
+                    } catch (err) {
+
+                        console.log(
+                            'LISTENER ERROR:',
+                            err
+                        )
+                    }
+
+                    //========================================
+                    // COMMANDS
+                    //========================================
+
+                    try {
+
+                        await handleCommand(
+                            sock,
+                            msg
+                        )
+
+                    } catch (err) {
+
+                        console.log(
+                            'COMMAND ERROR:',
+                            err
+                        )
+                    }
+
                 } catch (err) {
 
                     console.log(
-                        'MESSAGE ERROR:',
+                        'MESSAGE UPSERT ERROR:',
                         err
                     )
                 }
@@ -293,7 +564,7 @@ async function startBot() {
 
             'connection.update',
 
-            async ({
+            ({
                 connection,
                 lastDisconnect
             }) => {
@@ -306,26 +577,15 @@ async function startBot() {
                             ?.output
                             ?.statusCode
 
-                    //========================================
-                    // CONNECTING
-                    //========================================
-
                     if (
                         connection ===
                         'connecting'
                     ) {
 
                         console.log(
-
-                            chalk.yellow(
-                                'CONNECTING TO WHATSAPP...'
-                            )
+                            'CONNECTING...'
                         )
                     }
-
-                    //========================================
-                    // CONNECTED
-                    //========================================
 
                     if (
                         connection ===
@@ -336,23 +596,13 @@ async function startBot() {
                             false
 
                         console.log(
-
-                            chalk.green(
-                                '✅ BOT CONNECTED'
-                            )
+                            '✅ BOT CONNECTED'
                         )
 
                         console.log(
-
-                            chalk.cyan(
-                                `CONNECTED AS: ${sock.user?.id}`
-                            )
+                            `CONNECTED AS: ${sock.user?.id}`
                         )
                     }
-
-                    //========================================
-                    // CLOSED
-                    //========================================
 
                     if (
                         connection ===
@@ -360,10 +610,7 @@ async function startBot() {
                     ) {
 
                         console.log(
-
-                            chalk.red(
-                                `❌ CONNECTION CLOSED: ${statusCode}`
-                            )
+                            `❌ CONNECTION CLOSED: ${statusCode}`
                         )
 
                         if (
@@ -372,10 +619,7 @@ async function startBot() {
                         ) {
 
                             console.log(
-
-                                chalk.red(
-                                    'SESSION LOGGED OUT'
-                                )
+                                '❌ SESSION LOGGED OUT'
                             )
 
                             return
@@ -391,10 +635,7 @@ async function startBot() {
                             true
 
                         console.log(
-
-                            chalk.yellow(
-                                'RECONNECTING...'
-                            )
+                            '🔄 RECONNECTING...'
                         )
 
                         setTimeout(
@@ -436,7 +677,7 @@ async function startBot() {
 }
 
 //========================================
-// PAIR CODE API
+// PAIR ROUTE
 //========================================
 
 app.get(
@@ -457,7 +698,7 @@ app.get(
                     status: false,
 
                     message:
-                        'Number required'
+                        'ENTER NUMBER'
                 })
             }
 
@@ -467,48 +708,41 @@ app.get(
                     ''
                 )
 
-            if (
-                cleanNumber.length < 8
-            ) {
+            console.log(
+                `📲 PAIR REQUEST: ${cleanNumber}`
+            )
+
+            const pairSock =
+                await createPairSocket(
+                    cleanNumber
+                )
+
+            if (!pairSock) {
 
                 return res.json({
 
                     status: false,
 
                     message:
-                        'Invalid number'
+                        'SOCKET FAILED'
                 })
             }
 
-            //========================================
-            // WAIT FOR SOCKET
-            //========================================
-
-            if (!sock) {
-
-                return res.json({
-
-                    status: false,
-
-                    message:
-                        'Socket not ready'
-                })
-            }
-
-            //========================================
-            // GENERATE CODE
-            //========================================
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        5000
+                    )
+            )
 
             const code =
-                await sock.requestPairingCode(
+                await pairSock.requestPairingCode(
                     cleanNumber
                 )
 
             console.log(
-
-                chalk.green(
-                    `PAIR CODE FOR ${cleanNumber}: ${code}`
-                )
+                `✅ PAIR CODE: ${code}`
             )
 
             return res.json({
@@ -530,7 +764,7 @@ app.get(
                 status: false,
 
                 message:
-                    'Pairing failed'
+                    'PAIRING FAILED'
             })
         }
     }
@@ -574,6 +808,7 @@ if (
                 )
 
             } catch {}
+
         },
 
         240000
