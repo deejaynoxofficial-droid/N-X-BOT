@@ -1,9 +1,8 @@
 const fs = require('fs')
-
 const path = require('path')
 
 //========================================
-// LISTENER STORAGE
+// STORAGE
 //========================================
 
 const listeners = []
@@ -12,7 +11,8 @@ const listeners = []
 // MENU REPLY HANDLER
 //========================================
 
-let menuReplyHandler = null
+let menuReplyHandler =
+    null
 
 try {
 
@@ -31,69 +31,89 @@ try {
 } catch (error) {
 
     console.log(
-        '❌ Failed To Load Menu Reply Handler'
+        '❌ FAILED TO LOAD MENU HANDLER'
     )
 
     console.log(error)
 }
 
 //========================================
-// LISTENER FOLDER
+// LISTENER PATH
 //========================================
 
 const listenerPath =
-
     path.join(
         __dirname,
         '../listeners'
     )
 
 //========================================
-// CREATE LISTENER FOLDER
+// CREATE FOLDER
 //========================================
 
-if (
-    !fs.existsSync(listenerPath)
-) {
+try {
 
-    fs.mkdirSync(
-        listenerPath,
-        {
-            recursive: true
-        }
+    if (
+        !fs.existsSync(listenerPath)
+    ) {
+
+        fs.mkdirSync(
+            listenerPath,
+            {
+                recursive: true
+            }
+        )
+    }
+
+} catch (err) {
+
+    console.log(
+        '❌ LISTENER FOLDER ERROR'
     )
+
+    console.log(err)
 }
 
 //========================================
-// LOAD LISTENER FILES
+// LOAD LISTENERS
 //========================================
 
-const listenerFiles =
+try {
 
-    fs.readdirSync(listenerPath)
-
-        .filter(
-            file =>
+    const files =
+        fs.readdirSync(listenerPath)
+            .filter(file =>
                 file.endsWith('.js')
-        )
-
-//========================================
-// IMPORT LISTENERS
-//========================================
-
-for (const file of listenerFiles) {
-
-    try {
-
-        const listener =
-            require(
-                `../listeners/${file}`
             )
 
-        if (
-            typeof listener ===
-            'function'
-        ) {
+    for (const file of files) {
+
+        try {
+
+            const filePath =
+                path.join(
+                    listenerPath,
+                    file
+                )
+
+            delete require.cache[
+                require.resolve(filePath)
+            ]
+
+            const listener =
+                require(filePath)
+
+            if (
+                typeof listener !==
+                'function'
+            ) {
+
+                console.log(
+                    `❌ INVALID LISTENER: ${file}`
+                )
+
+                continue
+            }
 
             listeners.push({
 
@@ -103,24 +123,26 @@ for (const file of listenerFiles) {
             })
 
             console.log(
-                `✅ Listener Loaded: ${file}`
+                `✅ LISTENER LOADED: ${file}`
             )
 
-        } else {
+        } catch (err) {
 
             console.log(
-                `❌ Invalid Listener: ${file}`
+                `❌ FAILED TO LOAD: ${file}`
             )
+
+            console.log(err)
         }
-
-    } catch (error) {
-
-        console.log(
-            `❌ Failed To Load Listener: ${file}`
-        )
-
-        console.log(error)
     }
+
+} catch (err) {
+
+    console.log(
+        '❌ LISTENER LOAD ERROR'
+    )
+
+    console.log(err)
 }
 
 //========================================
@@ -129,40 +151,17 @@ for (const file of listenerFiles) {
 
 async function handleListeners(
     sock,
-    messages
+    msg
 ) {
 
     try {
 
         //========================================
-        // SOCKET CHECK
+        // VALIDATION
         //========================================
 
         if (
             !sock ||
-            typeof sock !== 'object'
-        ) {
-            return
-        }
-
-        //========================================
-        // MESSAGE ARRAY CHECK
-        //========================================
-
-        if (
-            !Array.isArray(messages)
-        ) {
-            return
-        }
-
-        //========================================
-        // GET FIRST MESSAGE
-        //========================================
-
-        const msg =
-            messages?.[0]
-
-        if (
             !msg ||
             !msg.message
         ) {
@@ -170,7 +169,7 @@ async function handleListeners(
         }
 
         //========================================
-        // IGNORE OWN MESSAGES
+        // IGNORE OWN
         //========================================
 
         if (
@@ -191,7 +190,7 @@ async function handleListeners(
         }
 
         //========================================
-        // MENU REPLY HANDLER
+        // MENU REPLY
         //========================================
 
         try {
@@ -209,20 +208,10 @@ async function handleListeners(
         } catch (menuError) {
 
             console.log(
-                '❌ MENU REPLY ERROR:'
+                '❌ MENU REPLY ERROR'
             )
 
             console.log(menuError)
-        }
-
-        //========================================
-        // NO LISTENERS
-        //========================================
-
-        if (
-            listeners.length === 0
-        ) {
-            return
         }
 
         //========================================
@@ -235,13 +224,6 @@ async function handleListeners(
 
                 if (
                     !listener ||
-                    typeof listener !==
-                    'object'
-                ) {
-                    continue
-                }
-
-                if (
                     typeof listener.execute !==
                     'function'
                 ) {
@@ -250,15 +232,13 @@ async function handleListeners(
 
                 await listener.execute(
                     sock,
-                    messages
+                    msg
                 )
 
             } catch (listenerError) {
 
                 console.log(
-
-`❌ Listener Error (${listener.name})`
-
+                    `❌ LISTENER ERROR: ${listener.name}`
                 )
 
                 console.log(listenerError)
@@ -268,7 +248,7 @@ async function handleListeners(
     } catch (error) {
 
         console.log(
-            '❌ ListenerHandler Error:'
+            '❌ HANDLE LISTENER ERROR'
         )
 
         console.log(error)
