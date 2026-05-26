@@ -1,7 +1,9 @@
 const fs = require('fs')
 const path = require('path')
 const moment = require('moment-timezone')
-const settings = require('../settings')
+
+const settings =
+    require('../settings')
 
 //========================================
 // GLOBAL STORAGE
@@ -14,10 +16,11 @@ global.menuReplies =
 // PATHS
 //========================================
 
-const commandsPath = path.join(
-    __dirname,
-    '../commands'
-)
+const commandsPath =
+    path.join(
+        __dirname,
+        '../commands'
+    )
 
 //========================================
 // COMMAND COUNT
@@ -27,15 +30,23 @@ function getCommandCount() {
 
     try {
 
-        if (!fs.existsSync(commandsPath)) {
+        if (
+            !fs.existsSync(
+                commandsPath
+            )
+        ) {
+
             return 0
         }
 
         return fs
-            .readdirSync(commandsPath)
+            .readdirSync(
+                commandsPath
+            )
             .filter(file =>
                 file.endsWith('.js')
-            ).length
+            )
+            .length
 
     } catch {
 
@@ -51,51 +62,82 @@ setInterval(() => {
 
     try {
 
-        const now = Date.now()
+        const now =
+            Date.now()
 
-        Object.keys(global.menuReplies)
-            .forEach(user => {
+        Object.keys(
+            global.menuReplies
+        ).forEach(user => {
 
-                const data =
-                    global.menuReplies[user]
+            const data =
+                global.menuReplies[user]
 
-                if (
-                    !data ||
-                    now - data.time >
-                    300000
-                ) {
+            if (
+                !data ||
+                now - data.time >
+                300000
+            ) {
 
-                    delete global
-                        .menuReplies[user]
-                }
-            })
+                delete global
+                    .menuReplies[user]
+            }
+        })
 
     } catch {}
 }, 60000)
 
 //========================================
-// GET BODY
+// GET MESSAGE BODY
 //========================================
 
 function getBody(msg) {
 
     try {
 
+        const message =
+            msg.message || {}
+
+        const ephemeral =
+            message
+                ?.ephemeralMessage
+                ?.message || {}
+
+        const viewOnce =
+            message
+                ?.viewOnceMessage
+                ?.message || {}
+
+        const msgData =
+            Object.keys(ephemeral).length
+                ? ephemeral
+                : Object.keys(viewOnce).length
+                ? viewOnce
+                : message
+
         return (
 
-            msg.message?.conversation ||
+            msgData.conversation ||
 
-            msg.message
+            msgData
                 ?.extendedTextMessage
                 ?.text ||
 
-            msg.message
+            msgData
                 ?.imageMessage
                 ?.caption ||
 
-            msg.message
+            msgData
                 ?.videoMessage
                 ?.caption ||
+
+            msgData
+                ?.buttonsResponseMessage
+                ?.selectedButtonId ||
+
+            msgData
+                ?.listResponseMessage
+                ?.singleSelectReply
+                ?.selectedRowId ||
 
             ''
         )
@@ -107,7 +149,7 @@ function getBody(msg) {
 }
 
 //========================================
-// EXPORT
+// MENU EXPORT
 //========================================
 
 module.exports = {
@@ -125,7 +167,7 @@ module.exports = {
         'Grouped menu system',
 
     //========================================
-    // MENU COMMAND
+    // EXECUTE MENU
     //========================================
 
     async execute(
@@ -139,12 +181,29 @@ module.exports = {
 
         try {
 
+            if (
+                !sock ||
+                !msg
+            ) {
+                return
+            }
+
             const from =
-                msg.key.remoteJid
+                msg.key?.remoteJid
+
+            if (!from) {
+                return
+            }
 
             const sender = (
-                msg.key.participant ||
-                from
+
+                msg.key
+                    ?.participant ||
+
+                from ||
+
+                ''
+
             ).split(':')[0]
 
             const pushName =
@@ -200,60 +259,101 @@ module.exports = {
 ${settings.footer || ''}
 `
 
-            let sent
+            let sentMessage
 
-            if (
-                settings.botImage &&
-                fs.existsSync(
-                    settings.botImage
-                )
-            ) {
+            //========================================
+            // SEND IMAGE MENU
+            //========================================
 
-                sent =
-                    await sock.sendMessage(
-                        from,
-                        {
-                            image:
-                                fs.readFileSync(
-                                    settings.botImage
-                                ),
+            try {
 
-                            caption:
-                                menu
-                        },
-                        {
-                            quoted: msg
-                        }
+                if (
+
+                    settings.botImage &&
+
+                    fs.existsSync(
+                        settings.botImage
                     )
 
-            } else {
+                ) {
 
-                sent =
+                    sentMessage =
+                        await sock.sendMessage(
+
+                            from,
+
+                            {
+
+                                image:
+                                    fs.readFileSync(
+                                        settings.botImage
+                                    ),
+
+                                caption:
+                                    menu
+                            },
+
+                            {
+                                quoted: msg
+                            }
+                        )
+
+                } else {
+
+                    sentMessage =
+                        await sock.sendMessage(
+
+                            from,
+
+                            {
+                                text: menu
+                            },
+
+                            {
+                                quoted: msg
+                            }
+                        )
+                }
+
+            } catch {
+
+                sentMessage =
                     await sock.sendMessage(
+
                         from,
+
                         {
                             text: menu
                         },
+
                         {
                             quoted: msg
                         }
                     )
             }
 
-            // SAVE REPLY SESSION
+            //========================================
+            // SAVE MENU SESSION
+            //========================================
 
             global.menuReplies[
                 sender
             ] = {
 
                 key:
-                    sent.key.id,
+                    sentMessage
+                        ?.key
+                        ?.id,
 
                 time:
                     Date.now(),
 
                 prefix
             }
+
+            console.log(
+                `✅ MENU SENT TO ${sender}`
+            )
 
         } catch (err) {
 
@@ -276,12 +376,29 @@ ${settings.footer || ''}
 
         try {
 
+            if (
+                !sock ||
+                !msg
+            ) {
+                return
+            }
+
             const from =
-                msg.key.remoteJid
+                msg.key?.remoteJid
+
+            if (!from) {
+                return
+            }
 
             const sender = (
-                msg.key.participant ||
-                from
+
+                msg.key
+                    ?.participant ||
+
+                from ||
+
+                ''
+
             ).split(':')[0]
 
             const replyData =
@@ -289,14 +406,30 @@ ${settings.footer || ''}
                     sender
                 ]
 
-            if (!replyData) {
+            if (
+                !replyData
+            ) {
                 return
             }
+
+            //========================================
+            // SAFE QUOTED CHECK
+            //========================================
 
             const quoted =
 
                 msg.message
                     ?.extendedTextMessage
+                    ?.contextInfo
+                    ?.stanzaId ||
+
+                msg.message
+                    ?.imageMessage
+                    ?.contextInfo
+                    ?.stanzaId ||
+
+                msg.message
+                    ?.videoMessage
                     ?.contextInfo
                     ?.stanzaId ||
 
@@ -310,6 +443,10 @@ ${settings.footer || ''}
                 return
             }
 
+            //========================================
+            // GET REPLY TEXT
+            //========================================
+
             const body =
                 getBody(msg)
                     .trim()
@@ -320,6 +457,10 @@ ${settings.footer || ''}
 
             const prefix =
                 replyData.prefix
+
+            //========================================
+            // MENU LISTS
+            //========================================
 
             const menus = {
 
@@ -401,18 +542,31 @@ ${settings.footer || ''}
             const response =
                 menus[body]
 
-            if (!response) {
+            if (
+                !response
+            ) {
                 return
             }
 
+            //========================================
+            // SEND MENU RESPONSE
+            //========================================
+
             await sock.sendMessage(
+
                 from,
+
                 {
                     text: response
                 },
+
                 {
                     quoted: msg
                 }
+            )
+
+            console.log(
+                `✅ MENU REPLY ${body}`
             )
 
         } catch (err) {
