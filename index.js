@@ -25,6 +25,13 @@ const chalk =
     chalkImport
 
 //========================================
+// SETTINGS
+//========================================
+
+const settings =
+    require('./settings')
+
+//========================================
 // SAFE OPTIONAL MODULES
 //========================================
 
@@ -45,12 +52,26 @@ try {
     )
 }
 
-//========================================
-// SETTINGS
-//========================================
+let autoViewOnceHandler =
+    null
 
-const settings =
-    require('./settings')
+try {
+
+    autoViewOnceHandler =
+        require(
+            './handler/autoViewOnce'
+        )
+
+    console.log(
+        '✅ AUTO VIEWONCE LOADED'
+    )
+
+} catch {
+
+    console.log(
+        '⚠️ AUTO VIEWONCE NOT FOUND'
+    )
+}
 
 //========================================
 // HANDLERS
@@ -126,38 +147,17 @@ try {
 }
 
 //========================================
-// OPTIONAL VIEWONCE
-//========================================
-
-let autoViewOnceHandler =
-    null
-
-try {
-
-    autoViewOnceHandler =
-        require(
-            './handler/autoViewOnce'
-        )
-
-    console.log(
-        '✅ AUTO VIEWONCE LOADED'
-    )
-
-} catch {
-
-    console.log(
-        '⚠️ AUTO VIEWONCE NOT FOUND'
-    )
-}
-
-//========================================
 // EXPRESS
 //========================================
 
 const app = express()
 
+app.use(express.json())
+
 app.use(
+
     express.static(
+
         path.join(
             __dirname,
             'public'
@@ -170,6 +170,7 @@ app.get(
     (req, res) => {
 
         res.sendFile(
+
             path.join(
                 __dirname,
                 'public',
@@ -190,6 +191,9 @@ let activeSocket =
     null
 
 let sock = null
+
+const sessions =
+    new Map()
 
 //========================================
 // CREATE FOLDERS
@@ -252,16 +256,256 @@ function createFolders() {
 }
 
 //========================================
+// CREATE PAIR SOCKET
+//========================================
+
+async function createPairSocket(
+    number
+) {
+
+    try {
+
+        if (
+            sessions.has(number)
+        ) {
+
+            return sessions.get(number)
+        }
+
+        const sessionPath =
+            path.join(
+                __dirname,
+                'sessions',
+                number
+            )
+
+        if (
+            !fs.existsSync(sessionPath)
+        ) {
+
+            fs.mkdirSync(
+                sessionPath,
+                {
+                    recursive: true
+                }
+            )
+        }
+
+        const {
+            state,
+            saveCreds
+        } =
+        await useMultiFileAuthState(
+            sessionPath
+        )
+
+        const {
+            version
+        } =
+        await fetchLatestBaileysVersion()
+
+        const pairSock =
+            makeWASocket({
+
+                auth: state,
+
+                version,
+
+                logger: pino({
+                    level: 'silent'
+                }),
+
+                browser: [
+
+                    'NOX-SPARROW',
+
+                    'Chrome',
+
+                    '1.0.0'
+                ],
+
+                printQRInTerminal: false,
+
+                markOnlineOnConnect: false,
+
+                syncFullHistory: false,
+
+                connectTimeoutMs: 60000,
+
+                keepAliveIntervalMs: 10000,
+
+                defaultQueryTimeoutMs:
+                    60000
+            })
+
+        pairSock.ev.on(
+            'creds.update',
+            saveCreds
+        )
+
+        sessions.set(
+            number,
+            pairSock
+        )
+
+        pairSock.ev.on(
+
+            'connection.update',
+
+            ({
+                connection,
+                lastDisconnect
+            }) => {
+
+                const statusCode =
+
+                    lastDisconnect
+                        ?.error
+                        ?.output
+                        ?.statusCode
+
+                if (
+                    connection ===
+                    'open'
+                ) {
+
+                    console.log(
+                        `✅ PAIR CONNECTED: ${number}`
+                    )
+                }
+
+                if (
+                    connection ===
+                    'close'
+                ) {
+
+                    console.log(
+                        `❌ PAIR CLOSED: ${statusCode}`
+                    )
+
+                    sessions.delete(number)
+                }
+            }
+        )
+
+        return pairSock
+
+    } catch (err) {
+
+        console.log(
+            'PAIR SOCKET ERROR:',
+            err
+        )
+
+        return null
+    }
+}
+
+//========================================
+// PAIR ROUTE
+//========================================
+
+app.get(
+
+    '/pair',
+
+    async (req, res) => {
+
+        try {
+
+            let number =
+                req.query.number
+
+            if (!number) {
+
+                return res.json({
+
+                    status: false,
+
+                    message:
+                        'ENTER NUMBER'
+                })
+            }
+
+            number =
+                number.replace(
+                    /[^0-9]/g,
+                    ''
+                )
+
+            console.log(
+                `📲 PAIR REQUEST: ${number}`
+            )
+
+            const pairSock =
+                await createPairSocket(
+                    number
+                )
+
+            if (!pairSock) {
+
+                return res.json({
+
+                    status: false,
+
+                    message:
+                        'SOCKET FAILED'
+                })
+            }
+
+            //========================================
+            // WAIT BEFORE REQUESTING CODE
+            //========================================
+
+            await new Promise(
+                resolve =>
+                    setTimeout(
+                        resolve,
+                        8000
+                    )
+            )
+
+            const code =
+                await pairSock.requestPairingCode(
+                    number
+                )
+
+            console.log(
+                `✅ PAIR CODE: ${code}`
+            )
+
+            return res.json({
+
+                status: true,
+
+                code
+            })
+
+        } catch (err) {
+
+            console.log(
+                'PAIR ERROR:',
+                err
+            )
+
+            return res.json({
+
+                status: false,
+
+                message:
+                    'PAIRING FAILED'
+            })
+        }
+    }
+)
+
+//========================================
 // START BOT
 //========================================
 
 async function startBot() {
 
     try {
-
-        //========================================
-        // CLOSE OLD SOCKET
-        //========================================
 
         if (activeSocket) {
 
@@ -272,15 +516,7 @@ async function startBot() {
             } catch {}
         }
 
-        //========================================
-        // CREATE FOLDERS
-        //========================================
-
         createFolders()
-
-        //========================================
-        // AUTH STATE
-        //========================================
 
         const {
             state,
@@ -289,10 +525,6 @@ async function startBot() {
         await useMultiFileAuthState(
             settings.sessionFolder
         )
-
-        //========================================
-        // BAILEYS VERSION
-        //========================================
 
         const {
             version
@@ -305,10 +537,6 @@ async function startBot() {
                 `USING VERSION: ${version}`
             )
         )
-
-        //========================================
-        // CREATE SOCKET
-        //========================================
 
         sock = makeWASocket({
 
@@ -341,21 +569,10 @@ async function startBot() {
             keepAliveIntervalMs: 10000,
 
             defaultQueryTimeoutMs:
-                60000,
-
-            emitOwnEvents: false,
-
-            fireInitQueries: true,
-
-            generateHighQualityLinkPreview:
-                true
+                60000
         })
 
         activeSocket = sock
-
-        //========================================
-        // SAVE CREDS
-        //========================================
 
         sock.ev.on(
             'creds.update',
@@ -387,16 +604,7 @@ async function startBot() {
                     }
 
                     const from =
-                        msg.key
-                            ?.remoteJid
-
-                    if (!from) {
-                        return
-                    }
-
-                    //========================================
-                    // IGNORE STATUS
-                    //========================================
+                        msg.key?.remoteJid
 
                     if (
                         from ===
@@ -404,10 +612,6 @@ async function startBot() {
                     ) {
                         return
                     }
-
-                    //========================================
-                    // MESSAGE BODY
-                    //========================================
 
                     const body =
 
@@ -426,19 +630,10 @@ async function startBot() {
                             ?.videoMessage
                             ?.caption ||
 
-                        msg.message
-                            ?.buttonsResponseMessage
-                            ?.selectedButtonId ||
-
-                        msg.message
-                            ?.listResponseMessage
-                            ?.singleSelectReply
-                            ?.selectedRowId ||
-
                         ''
 
                     console.log(
-                        `📩 MESSAGE: ${body || 'NO TEXT'}`
+                        `📩 ${body || 'NO TEXT'}`
                     )
 
                     //========================================
@@ -465,13 +660,7 @@ async function startBot() {
                             getGroup(from)
                         }
 
-                    } catch (dbErr) {
-
-                        console.log(
-                            'DATABASE ERROR:',
-                            dbErr
-                        )
-                    }
+                    } catch {}
 
                     //========================================
                     // AUTO READ
@@ -625,26 +814,15 @@ async function startBot() {
                             ?.output
                             ?.statusCode
 
-                    //========================================
-                    // CONNECTING
-                    //========================================
-
                     if (
                         connection ===
                         'connecting'
                     ) {
 
                         console.log(
-
-                            chalk.yellow(
-                                'CONNECTING...'
-                            )
+                            'CONNECTING...'
                         )
                     }
-
-                    //========================================
-                    // OPEN
-                    //========================================
 
                     if (
                         connection ===
@@ -655,23 +833,13 @@ async function startBot() {
                             false
 
                         console.log(
-
-                            chalk.green(
-                                '✅ BOT CONNECTED'
-                            )
+                            '✅ BOT CONNECTED'
                         )
 
                         console.log(
-
-                            chalk.cyan(
-                                `CONNECTED AS: ${sock.user?.id}`
-                            )
+                            `CONNECTED AS: ${sock.user?.id}`
                         )
                     }
-
-                    //========================================
-                    // CLOSE
-                    //========================================
 
                     if (
                         connection ===
@@ -679,15 +847,8 @@ async function startBot() {
                     ) {
 
                         console.log(
-
-                            chalk.red(
-                                `❌ CONNECTION CLOSED: ${statusCode}`
-                            )
+                            `❌ CONNECTION CLOSED: ${statusCode}`
                         )
-
-                        //========================================
-                        // LOGGED OUT
-                        //========================================
 
                         if (
 
@@ -699,18 +860,11 @@ async function startBot() {
                         ) {
 
                             console.log(
-
-                                chalk.red(
-                                    'SESSION LOGGED OUT'
-                                )
+                                'SESSION LOGGED OUT'
                             )
 
                             return
                         }
-
-                        //========================================
-                        // PREVENT MULTIPLE RECONNECTS
-                        //========================================
 
                         if (
                             reconnecting
@@ -722,10 +876,7 @@ async function startBot() {
                             true
 
                         console.log(
-
-                            chalk.yellow(
-                                '🔄 RECONNECTING IN 5 SECONDS...'
-                            )
+                            '🔄 RECONNECTING...'
                         )
 
                         setTimeout(
@@ -771,8 +922,7 @@ async function startBot() {
 //========================================
 
 if (
-    process.env
-        .RENDER_EXTERNAL_URL
+    process.env.RENDER_EXTERNAL_URL
 ) {
 
     setInterval(
