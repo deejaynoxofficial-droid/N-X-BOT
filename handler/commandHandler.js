@@ -126,7 +126,10 @@ function loadCommands() {
                     for (const alias of command.aliases) {
 
                         if (
-                            typeof alias === 'string'
+                            typeof alias === 'string' &&
+                            !commands.has(
+                                alias.toLowerCase()
+                            )
                         ) {
 
                             commands.set(
@@ -181,10 +184,6 @@ function getBody(msg) {
 
         const message =
             msg.message || {}
-
-        //========================================
-        // EPHEMERAL SUPPORT
-        //========================================
 
         const ephemeral =
             message?.ephemeralMessage
@@ -359,10 +358,19 @@ async function handleCommand(
                     'function'
                 ) {
 
-                    await menuCommand.replyHandler(
-                        sock,
-                        msg
-                    )
+                    const handled =
+                        await menuCommand.replyHandler(
+                            sock,
+                            msg
+                        )
+
+                    //========================================
+                    // STOP IF MENU HANDLED
+                    //========================================
+
+                    if (handled === true) {
+                        return
+                    }
                 }
             }
 
@@ -403,6 +411,10 @@ async function handleCommand(
         if (!commandName) {
             return
         }
+
+        console.log(
+            `📥 RECEIVED COMMAND: ${commandName}`
+        )
 
         const command =
             commands.get(commandName)
@@ -582,6 +594,10 @@ async function handleCommand(
             )
         )
 
+        console.log(
+            `✅ SUCCESS: ${commandName}`
+        )
+
     } catch (err) {
 
         console.log(
@@ -589,6 +605,21 @@ async function handleCommand(
         )
 
         console.log(err)
+
+        try {
+
+            await sock.sendMessage(
+                msg.key.remoteJid,
+                {
+                    text:
+                        '❌ Command execution failed.'
+                },
+                {
+                    quoted: msg
+                }
+            )
+
+        } catch {}
     }
 }
 
