@@ -15,7 +15,7 @@ const {
 const commands = new Map()
 
 //========================================
-// COMMAND PATH
+// COMMANDS PATH
 //========================================
 
 const commandsPath = path.join(
@@ -114,7 +114,7 @@ function loadCommands() {
                 )
 
                 //========================================
-                // SAFE ALIASES
+                // ALIASES
                 //========================================
 
                 if (
@@ -126,10 +126,7 @@ function loadCommands() {
                     for (const alias of command.aliases) {
 
                         if (
-                            typeof alias === 'string' &&
-                            !commands.has(
-                                alias.toLowerCase()
-                            )
+                            typeof alias === 'string'
                         ) {
 
                             commands.set(
@@ -299,7 +296,7 @@ async function handleCommand(
             ? (
                 msg.key?.participant ||
                 ''
-              )
+            )
             : from
 
         const normalizedSender =
@@ -323,55 +320,24 @@ async function handleCommand(
         }
 
         //========================================
-        // SAFE MENU REPLY HANDLER
+        // MENU REPLY HANDLER
         //========================================
 
         try {
 
-            const quoted =
+            const menuCommand =
+                commands.get('menu')
 
-                msg.message
-                    ?.extendedTextMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
+            if (
+                menuCommand &&
+                typeof menuCommand.replyHandler ===
+                'function'
+            ) {
 
-                msg.message
-                    ?.imageMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
-
-                msg.message
-                    ?.videoMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
-
-                null
-
-            if (quoted) {
-
-                const menuCommand =
-                    commands.get('menu')
-
-                if (
-                    menuCommand &&
-                    typeof menuCommand.replyHandler ===
-                    'function'
-                ) {
-
-                    const handled =
-                        await menuCommand.replyHandler(
-                            sock,
-                            msg
-                        )
-
-                    //========================================
-                    // STOP IF MENU HANDLED
-                    //========================================
-
-                    if (handled === true) {
-                        return
-                    }
-                }
+                await menuCommand.replyHandler(
+                    sock,
+                    msg
+                )
             }
 
         } catch (err) {
@@ -413,7 +379,7 @@ async function handleCommand(
         }
 
         console.log(
-            `📥 RECEIVED COMMAND: ${commandName}`
+            `📥 COMMAND: ${commandName}`
         )
 
         const command =
@@ -546,7 +512,7 @@ async function handleCommand(
         }
 
         //========================================
-        // BANNED
+        // BANNED USERS
         //========================================
 
         if (
@@ -566,37 +532,55 @@ async function handleCommand(
         }
 
         //========================================
-        // LOG
+        // EXECUTE COMMAND
         //========================================
 
-        console.log(
-            `▶ RUNNING: ${commandName}`
-        )
+        try {
 
-        //========================================
-        // EXECUTE
-        //========================================
+            await Promise.resolve(
 
-        await Promise.resolve(
-
-            command.execute(
-                sock,
-                msg,
-                args,
-                {
-                    userData,
-                    groupData,
-                    isGroup,
-                    sender:
-                        normalizedSender,
-                    prefix
-                }
+                command.execute(
+                    sock,
+                    msg,
+                    args,
+                    {
+                        userData,
+                        groupData,
+                        isGroup,
+                        sender:
+                            normalizedSender,
+                        prefix
+                    }
+                )
             )
-        )
 
-        console.log(
-            `✅ SUCCESS: ${commandName}`
-        )
+            console.log(
+                `✅ SUCCESS: ${commandName}`
+            )
+
+        } catch (cmdError) {
+
+            console.log(
+                `❌ COMMAND ERROR: ${commandName}`
+            )
+
+            console.log(cmdError)
+
+            try {
+
+                await sock.sendMessage(
+                    from,
+                    {
+                        text:
+                            '❌ Command execution failed.'
+                    },
+                    {
+                        quoted: msg
+                    }
+                )
+
+            } catch {}
+        }
 
     } catch (err) {
 
@@ -605,21 +589,6 @@ async function handleCommand(
         )
 
         console.log(err)
-
-        try {
-
-            await sock.sendMessage(
-                msg.key.remoteJid,
-                {
-                    text:
-                        '❌ Command execution failed.'
-                },
-                {
-                    quoted: msg
-                }
-            )
-
-        } catch {}
     }
 }
 
