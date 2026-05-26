@@ -35,23 +35,6 @@ const settings =
 // SAFE OPTIONAL MODULES
 //========================================
 
-let mega = null
-
-try {
-
-    mega = require('megajs')
-
-    console.log(
-        '✅ MEGAJS LOADED'
-    )
-
-} catch {
-
-    console.log(
-        '⚠️ MEGAJS NOT INSTALLED'
-    )
-}
-
 let autoViewOnceHandler =
     null
 
@@ -61,10 +44,6 @@ try {
         require(
             './handler/autoViewOnce'
         )
-
-    console.log(
-        '✅ AUTO VIEWONCE LOADED'
-    )
 
 } catch {
 
@@ -134,10 +113,6 @@ try {
     getGroup =
         database.getGroup ||
         (() => {})
-
-    console.log(
-        '✅ DATABASE LOADED'
-    )
 
 } catch {
 
@@ -239,10 +214,6 @@ function createFolders() {
                         recursive: true
                     }
                 )
-
-                console.log(
-                    `📁 CREATED: ${folder}`
-                )
             }
 
         } catch (err) {
@@ -256,153 +227,7 @@ function createFolders() {
 }
 
 //========================================
-// CREATE PAIR SOCKET
-//========================================
-
-async function createPairSocket(
-    number
-) {
-
-    try {
-
-        if (
-            sessions.has(number)
-        ) {
-
-            return sessions.get(number)
-        }
-
-        const sessionPath =
-            path.join(
-                __dirname,
-                'sessions',
-                number
-            )
-
-        if (
-            !fs.existsSync(sessionPath)
-        ) {
-
-            fs.mkdirSync(
-                sessionPath,
-                {
-                    recursive: true
-                }
-            )
-        }
-
-        const {
-            state,
-            saveCreds
-        } =
-        await useMultiFileAuthState(
-            sessionPath
-        )
-
-        const {
-            version
-        } =
-        await fetchLatestBaileysVersion()
-
-        const pairSock =
-            makeWASocket({
-
-                auth: state,
-
-                version,
-
-                logger: pino({
-                    level: 'silent'
-                }),
-
-                browser: [
-
-                    'NOX-SPARROW',
-
-                    'Chrome',
-
-                    '1.0.0'
-                ],
-
-                printQRInTerminal: false,
-
-                markOnlineOnConnect: false,
-
-                syncFullHistory: false,
-
-                connectTimeoutMs: 60000,
-
-                keepAliveIntervalMs: 10000,
-
-                defaultQueryTimeoutMs:
-                    60000
-            })
-
-        pairSock.ev.on(
-            'creds.update',
-            saveCreds
-        )
-
-        sessions.set(
-            number,
-            pairSock
-        )
-
-        pairSock.ev.on(
-
-            'connection.update',
-
-            ({
-                connection,
-                lastDisconnect
-            }) => {
-
-                const statusCode =
-
-                    lastDisconnect
-                        ?.error
-                        ?.output
-                        ?.statusCode
-
-                if (
-                    connection ===
-                    'open'
-                ) {
-
-                    console.log(
-                        `✅ PAIR CONNECTED: ${number}`
-                    )
-                }
-
-                if (
-                    connection ===
-                    'close'
-                ) {
-
-                    console.log(
-                        `❌ PAIR CLOSED: ${statusCode}`
-                    )
-
-                    sessions.delete(number)
-                }
-            }
-        )
-
-        return pairSock
-
-    } catch (err) {
-
-        console.log(
-            'PAIR SOCKET ERROR:',
-            err
-        )
-
-        return null
-    }
-}
-
-//========================================
-// PAIR ROUTE
+// SAFE PAIR ROUTE
 //========================================
 
 app.get(
@@ -427,43 +252,208 @@ app.get(
                 })
             }
 
+            //========================================
+            // CLEAN NUMBER
+            //========================================
+
             number =
                 number.replace(
                     /[^0-9]/g,
                     ''
                 )
 
-            console.log(
-                `📲 PAIR REQUEST: ${number}`
-            )
-
-            const pairSock =
-                await createPairSocket(
-                    number
-                )
-
-            if (!pairSock) {
+            if (
+                number.length < 11
+            ) {
 
                 return res.json({
 
                     status: false,
 
                     message:
-                        'SOCKET FAILED'
+                        'INVALID NUMBER'
                 })
             }
 
+            console.log(
+                `📲 PAIR REQUEST: ${number}`
+            )
+
             //========================================
-            // WAIT BEFORE REQUESTING CODE
+            // REMOVE OLD SESSION
+            //========================================
+
+            const sessionPath =
+                path.join(
+                    __dirname,
+                    'sessions',
+                    number
+                )
+
+            if (
+                fs.existsSync(
+                    sessionPath
+                )
+            ) {
+
+                fs.rmSync(
+                    sessionPath,
+                    {
+                        recursive: true,
+                        force: true
+                    }
+                )
+            }
+
+            fs.mkdirSync(
+                sessionPath,
+                {
+                    recursive: true
+                }
+            )
+
+            //========================================
+            // AUTH STATE
+            //========================================
+
+            const {
+                state,
+                saveCreds
+            } =
+            await useMultiFileAuthState(
+                sessionPath
+            )
+
+            //========================================
+            // BAILEYS VERSION
+            //========================================
+
+            const {
+                version
+            } =
+            await fetchLatestBaileysVersion()
+
+            //========================================
+            // CREATE SOCKET
+            //========================================
+
+            const pairSock =
+                makeWASocket({
+
+                    auth: state,
+
+                    version,
+
+                    logger: pino({
+                        level: 'silent'
+                    }),
+
+                    browser: [
+
+                        'Ubuntu',
+
+                        'Chrome',
+
+                        '20.0.04'
+                    ],
+
+                    printQRInTerminal: false,
+
+                    markOnlineOnConnect: true,
+
+                    syncFullHistory: false,
+
+                    connectTimeoutMs: 60000,
+
+                    keepAliveIntervalMs: 10000,
+
+                    defaultQueryTimeoutMs:
+                        60000
+                })
+
+            pairSock.ev.on(
+                'creds.update',
+                saveCreds
+            )
+
+            //========================================
+            // WAIT FOR SOCKET READY
+            //========================================
+
+            await new Promise(
+
+                (
+                    resolve,
+                    reject
+                ) => {
+
+                    const timeout =
+                        setTimeout(
+                            () => {
+
+                                reject(
+                                    new Error(
+                                        'TIMEOUT'
+                                    )
+                                )
+
+                            },
+                            25000
+                        )
+
+                    pairSock.ev.on(
+
+                        'connection.update',
+
+                        ({
+                            connection
+                        }) => {
+
+                            if (
+                                connection ===
+                                'connecting'
+                            ) {
+
+                                console.log(
+                                    'PAIR CONNECTING...'
+                                )
+                            }
+
+                            if (
+                                connection ===
+                                'open'
+                            ) {
+
+                                clearTimeout(
+                                    timeout
+                                )
+
+                                console.log(
+                                    'PAIR READY'
+                                )
+
+                                resolve()
+                            }
+                        }
+                    )
+                }
+            )
+
+            //========================================
+            // EXTRA SAFE DELAY
             //========================================
 
             await new Promise(
                 resolve =>
                     setTimeout(
                         resolve,
-                        8000
+                        5000
                     )
             )
+
+            //========================================
+            // GENERATE CODE
+            //========================================
 
             const code =
                 await pairSock.requestPairingCode(
@@ -530,13 +520,6 @@ async function startBot() {
             version
         } =
         await fetchLatestBaileysVersion()
-
-        console.log(
-
-            chalk.cyan(
-                `USING VERSION: ${version}`
-            )
-        )
 
         sock = makeWASocket({
 
@@ -637,7 +620,7 @@ async function startBot() {
                     )
 
                     //========================================
-                    // DATABASE INIT
+                    // DATABASE
                     //========================================
 
                     try {
@@ -680,42 +663,6 @@ async function startBot() {
                     }
 
                     //========================================
-                    // AUTO TYPING
-                    //========================================
-
-                    if (
-                        settings.autoTyping
-                    ) {
-
-                        try {
-
-                            await sock.sendPresenceUpdate(
-                                'composing',
-                                from
-                            )
-
-                        } catch {}
-                    }
-
-                    //========================================
-                    // AUTO RECORDING
-                    //========================================
-
-                    if (
-                        settings.autoRecording
-                    ) {
-
-                        try {
-
-                            await sock.sendPresenceUpdate(
-                                'recording',
-                                from
-                            )
-
-                        } catch {}
-                    }
-
-                    //========================================
                     // VIEWONCE
                     //========================================
 
@@ -731,13 +678,7 @@ async function startBot() {
                                 msg
                             )
 
-                        } catch (err) {
-
-                            console.log(
-                                'VIEWONCE ERROR:',
-                                err
-                            )
-                        }
+                        } catch {}
                     }
 
                     //========================================
@@ -751,13 +692,7 @@ async function startBot() {
                             messages
                         )
 
-                    } catch (err) {
-
-                        console.log(
-                            'LISTENER ERROR:',
-                            err
-                        )
-                    }
+                    } catch {}
 
                     //========================================
                     // COMMANDS
@@ -768,10 +703,6 @@ async function startBot() {
                         await handleCommand(
                             sock,
                             msg
-                        )
-
-                        console.log(
-                            `▶ RUNNING: ${body}`
                         )
 
                     } catch (err) {
@@ -785,7 +716,7 @@ async function startBot() {
                 } catch (err) {
 
                     console.log(
-                        'MESSAGE UPSERT ERROR:',
+                        'MESSAGE ERROR:',
                         err
                     )
                 }
@@ -847,7 +778,7 @@ async function startBot() {
                     ) {
 
                         console.log(
-                            `❌ CONNECTION CLOSED: ${statusCode}`
+                            `❌ CLOSED: ${statusCode}`
                         )
 
                         if (
@@ -874,10 +805,6 @@ async function startBot() {
 
                         reconnecting =
                             true
-
-                        console.log(
-                            '🔄 RECONNECTING...'
-                        )
 
                         setTimeout(
                             () => {
@@ -936,11 +863,8 @@ if (
                         .RENDER_EXTERNAL_URL
                 )
 
-                console.log(
-                    'KEEP ALIVE SUCCESS'
-                )
-
             } catch {}
+
         },
 
         240000
@@ -961,10 +885,7 @@ app.listen(
     () => {
 
         console.log(
-
-            chalk.green(
-                `SERVER RUNNING ON ${PORT}`
-            )
+            `SERVER RUNNING ON ${PORT}`
         )
 
         startBot()
