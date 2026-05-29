@@ -1,326 +1,829 @@
 require('dotenv').config()
 
-module.exports = {
+// ========================================
+// EXPRESS SERVER
+// ========================================
 
-    //========================================
-    // BOT INFORMATION
-    //========================================
+const express = require('express')
+const app = express()
 
-    botName:
-        '𝙽𝙾𝚇 𝚂𝙿𝙰𝚁𝚁𝙾𝚆 𝙱𝙾𝚃',
+// ========================================
+// IMPORTS
+// ========================================
 
-    botVersion:
-        '1.0.0',
+const fs = require('fs')
+const path = require('path')
+const pino = require('pino')
 
-    ownerName:
-        'NOX STAR.B',
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason,
+    fetchLatestBaileysVersion,
+    Browsers
+} = require('@whiskeysockets/baileys')
 
-    // MAIN OWNER
-    ownerNumber:
-        '256748752152',
+const chalkImport = require('chalk')
 
-    // EXTRA OWNERS
-    ownerNumbers: [
-        '256748752152'
-    ],
+const chalk =
+    chalkImport.default ||
+    chalkImport
 
-    ownerEmoji:
-        '👑',
+const settings = require('./settings')
 
-    botEmoji:
-        '🤖',
+// ========================================
+// SAFE IMPORTS
+// ========================================
 
-    footer:
-        '© POWERED BY NOX STAR.B',
+let handleCommand =
+    async () => {}
 
-    //========================================
-    // PREFIX SETTINGS
-    //========================================
+let handleListeners =
+    async () => {}
 
-    prefix:
-        '.',
+let autoViewOnceHandler =
+    null
 
-    //========================================
-    // SESSION SETTINGS
-    //========================================
+let getUser =
+    () => {}
 
-    sessionName:
-        'session',
+let getGroup =
+    () => {}
 
-    sessionFolder:
+try {
+
+    const commandHandler =
+        require('./handler/commandHandler')
+
+    handleCommand =
+        commandHandler.handleCommand ||
+        async () => {}
+
+} catch (err) {
+
+    console.log(
+        '❌ COMMAND HANDLER ERROR'
+    )
+
+    console.log(err)
+}
+
+try {
+
+    const listenerHandler =
+        require('./handler/listenerHandler')
+
+    handleListeners =
+        listenerHandler.handleListeners ||
+        async () => {}
+
+} catch (err) {
+
+    console.log(
+        '❌ LISTENER HANDLER ERROR'
+    )
+}
+
+try {
+
+    autoViewOnceHandler =
+        require('./handler/autoViewOnce')
+
+} catch {}
+
+try {
+
+    const database =
+        require('./database/database')
+
+    getUser =
+        database.getUser ||
+        (() => {})
+
+    getGroup =
+        database.getGroup ||
+        (() => {})
+
+} catch {
+
+    console.log(
+        '❌ DATABASE ERROR'
+    )
+}
+
+// ========================================
+// EXPRESS
+// ========================================
+
+app.use(express.json())
+
+app.use(
+    express.static(
+        path.join(
+            __dirname,
+            'public'
+        )
+    )
+)
+
+app.get('/', (req, res) => {
+
+    res.sendFile(
+        path.join(
+            __dirname,
+            'public',
+            'index.html'
+        )
+    )
+})
+
+// ========================================
+// GLOBALS
+// ========================================
+
+let reconnecting = false
+let activeSocket = null
+
+// ========================================
+// CREATE FOLDERS
+// ========================================
+
+function createFolders() {
+
+    const folders = [
+
         './sessions',
 
-    //========================================
-    // BOT MODES
-    //========================================
-
-    publicMode:
-        true,
-
-    maintenance:
-        false,
-
-    // IMPORTANT FOR OWNER COMMANDS
-    selfCommands:
-        true,
-
-    //========================================
-    // COMMAND SETTINGS
-    //========================================
-
-    replyCommands:
-        true,
-
-    commandReaction:
-        false,
-
-    commandLogs:
-        true,
-
-    commandCooldown:
-        3,
-
-    deleteInvalidCommands:
-        false,
-
-    //========================================
-    // MENU SETTINGS
-    //========================================
-
-    menuType:
-        'grouped',
-
-    menuEmoji:
-        true,
-
-    menuReply:
-        true,
-
-    //========================================
-    // AUTO FEATURES
-    //========================================
-
-    autoRead:
-        false,
-
-    // SAFER
-    autoTyping:
-        false,
-
-    autoRecording:
-        false,
-
-    autoStatusView:
-        false,
-
-    autoSticker:
-        false,
-
-    autoReply:
-        false,
-
-    autoChatbot:
-        false,
-
-    //========================================
-    // GROUP SETTINGS
-    //========================================
-
-    welcome:
-        false,
-
-    goodbye:
-        false,
-
-    antiLink:
-        false,
-
-    antiBadword:
-        false,
-
-    antiDelete:
-        false,
-
-    // DISABLE UNTIL STABLE
-    antiViewOnce:
-        false,
-
-    antiSpam:
-        false,
-
-    antiBot:
-        false,
-
-    antiCall:
-        false,
-
-    nsfw:
-        false,
-
-    //========================================
-    // SECURITY SETTINGS
-    //========================================
-
-    antiCrash:
-        true,
-
-    antiBug:
-        true,
-
-    antiFlood:
-        true,
-
-    antiCommandSpam:
-        true,
-
-    //========================================
-    // LIMIT SETTINGS
-    //========================================
-
-    dailyLimit:
-        20,
-
-    premiumLimit:
-        9999,
-
-    cooldown:
-        3,
-
-    //========================================
-    // REACTIONS
-    //========================================
-
-    reactEmoji:
-        '🔥',
-
-    successEmoji:
-        '✅',
-
-    errorEmoji:
-        '❌',
-
-    waitEmoji:
-        '⏳',
-
-    //========================================
-    // STICKER SETTINGS
-    //========================================
-
-    stickerPackname:
-        'NOX SPARROW BOT',
-
-    stickerAuthor:
-        'NOX STAR.B',
-
-    //========================================
-    // MEDIA SETTINGS
-    //========================================
-
-    botImage:
-        './media/bot.jpg',
-
-    thumbnail:
-        './media/ai.jpg',
-
-    maxUploadSize:
-        100 * 1024 * 1024,
-
-    maxVideoDuration:
-        60,
-
-    ffmpegPath:
-        'ffmpeg',
-
-    //========================================
-    // API KEYS
-    //========================================
-
-    apiKey:
-        process.env.API_KEY || '',
-
-    openaiKey:
-        process.env.OPENAI_KEY || '',
-
-    geminiKey:
-        process.env.GEMINI_KEY || '',
-
-    //========================================
-    // API URLS
-    //========================================
-
-    APIs: {
-
-        neoxr:
-            'https://api.neoxr.eu',
-
-        lolhuman:
-            'https://api.lolhuman.xyz',
-
-        botcahx:
-            'https://api.botcahx.eu.org'
-    },
-
-    //========================================
-    // DATABASE SETTINGS
-    //========================================
-
-    database:
-        './database/database.json',
-
-    premiumDB:
-        './database/premium.json',
-
-    bannedDB:
-        './database/banned.json',
-
-    //========================================
-    // TEMP & LOGS
-    //========================================
-
-    tempFolder:
         './temp',
 
-    logsFolder:
-        './logs',
+        './temp/audio',
 
-    //========================================
-    // TIMEZONE
-    //========================================
+        './temp/video',
 
-    timezone:
-        'Africa/Kampala',
+        './temp/image',
 
-    //========================================
-    // SOCKET SETTINGS
-    //========================================
+        './temp/sticker',
 
-    reconnectDelay:
-        5000,
+        './database',
 
-    cleanupInterval:
-        600000,
+        './logs'
+    ]
 
-    pairingTimeout:
-        30000,
+    for (const folder of folders) {
 
-    maxPairSessions:
-        100,
+        if (
+            !fs.existsSync(folder)
+        ) {
 
-    socketKeepAlive:
-        10000,
-
-    connectTimeout:
-        60000,
-
-    queryTimeout:
-        60000,
-
-    maxReconnectAttempts:
-        20,
-
-    autoSessionCleanup:
-        true,
-
-    enablePairSocket:
-        true
+            fs.mkdirSync(folder, {
+                recursive: true
+            })
+        }
+    }
 }
+
+createFolders()
+
+// ========================================
+// PAIR ROUTE
+// ========================================
+
+app.get(
+    '/pair',
+    async (req, res) => {
+
+        try {
+
+            let number =
+                req.query.number
+
+            if (!number) {
+
+                return res.json({
+
+                    status: false,
+
+                    message:
+                        'ENTER NUMBER'
+                })
+            }
+
+            // ========================================
+            // CLEAN NUMBER
+            // ========================================
+
+            number =
+                number.replace(
+                    /[^0-9]/g,
+                    ''
+                )
+
+            if (
+                number.length < 11
+            ) {
+
+                return res.json({
+
+                    status: false,
+
+                    message:
+                        'INVALID NUMBER'
+                })
+            }
+
+            console.log(
+                chalk.yellow(
+                    `PAIR REQUEST: ${number}`
+                )
+            )
+
+            // ========================================
+            // SESSION PATH
+            // ========================================
+
+            const sessionPath =
+                path.join(
+                    __dirname,
+                    'sessions',
+                    number
+                )
+
+            if (
+                !fs.existsSync(
+                    sessionPath
+                )
+            ) {
+
+                fs.mkdirSync(
+                    sessionPath,
+                    {
+                        recursive: true
+                    }
+                )
+            }
+
+            // ========================================
+            // AUTH
+            // ========================================
+
+            const {
+                state,
+                saveCreds
+            } =
+            await useMultiFileAuthState(
+                sessionPath
+            )
+
+            // ========================================
+            // VERSION
+            // ========================================
+
+            const {
+                version
+            } =
+            await fetchLatestBaileysVersion()
+
+            // ========================================
+            // SOCKET
+            // ========================================
+
+            const pairSock =
+                makeWASocket({
+
+                    version,
+
+                    logger: pino({
+                        level: 'silent'
+                    }),
+
+                    auth: state,
+
+                    browser:
+                        Browsers.windows(
+                            'Chrome'
+                        ),
+
+                    printQRInTerminal: false,
+
+                    markOnlineOnConnect: false,
+
+                    syncFullHistory: false,
+
+                    connectTimeoutMs: 60000,
+
+                    keepAliveIntervalMs: 10000,
+
+                    defaultQueryTimeoutMs:
+                        60000
+                })
+
+            pairSock.ev.on(
+                'creds.update',
+                saveCreds
+            )
+
+            // ========================================
+            // WAIT FOR CONNECTION
+            // ========================================
+
+            await new Promise(
+                (
+                    resolve,
+                    reject
+                ) => {
+
+                    const timeout =
+                        setTimeout(
+                            () => {
+
+                                reject(
+                                    new Error(
+                                        'TIMEOUT'
+                                    )
+                                )
+
+                            },
+                            20000
+                        )
+
+                    pairSock.ev.on(
+                        'connection.update',
+                        ({
+                            connection
+                        }) => {
+
+                            if (
+                                connection ===
+                                'connecting'
+                            ) {
+
+                                console.log(
+                                    'PAIR CONNECTING...'
+                                )
+                            }
+
+                            if (
+                                connection ===
+                                'open'
+                            ) {
+
+                                clearTimeout(
+                                    timeout
+                                )
+
+                                resolve()
+                            }
+                        }
+                    )
+                }
+            )
+
+            // ========================================
+            // GENERATE PAIR CODE
+            // ========================================
+
+            const code =
+                await pairSock.requestPairingCode(
+                    number
+                )
+
+            console.log(
+                chalk.green(
+                    `PAIR CODE: ${code}`
+                )
+            )
+
+            return res.json({
+
+                status: true,
+
+                code
+            })
+
+        } catch (err) {
+
+            console.log(
+                chalk.red(
+                    'PAIR ERROR:'
+                )
+            )
+
+            console.log(err)
+
+            return res.json({
+
+                status: false,
+
+                message:
+                    'PAIRING FAILED'
+            })
+        }
+    }
+)
+
+// ========================================
+// START BOT
+// ========================================
+
+async function startBot() {
+
+    try {
+
+        // ========================================
+        // PREVENT MULTIPLE SOCKETS
+        // ========================================
+
+        if (activeSocket) {
+
+            try {
+
+                activeSocket.end()
+
+            } catch {}
+        }
+
+        // ========================================
+        // AUTH
+        // ========================================
+
+        const {
+            state,
+            saveCreds
+        } =
+        await useMultiFileAuthState(
+            settings.sessionFolder
+        )
+
+        // ========================================
+        // VERSION
+        // ========================================
+
+        const {
+            version
+        } =
+        await fetchLatestBaileysVersion()
+
+        console.log(
+            chalk.cyan(
+                `BAILEYS VERSION: ${version}`
+            )
+        )
+
+        // ========================================
+        // SOCKET
+        // ========================================
+
+        const sock =
+            makeWASocket({
+
+                version,
+
+                logger: pino({
+                    level: 'silent'
+                }),
+
+                auth: state,
+
+                browser:
+                    Browsers.windows(
+                        'Chrome'
+                    ),
+
+                printQRInTerminal: false,
+
+                syncFullHistory: false,
+
+                markOnlineOnConnect: true,
+
+                connectTimeoutMs:
+                    settings.connectTimeout,
+
+                keepAliveIntervalMs:
+                    settings.socketKeepAlive,
+
+                defaultQueryTimeoutMs:
+                    settings.queryTimeout,
+
+                generateHighQualityLinkPreview: true
+            })
+
+        activeSocket = sock
+
+        // ========================================
+        // SAVE CREDS
+        // ========================================
+
+        sock.ev.on(
+            'creds.update',
+            saveCreds
+        )
+
+        // ========================================
+        // MESSAGE EVENT
+        // ========================================
+
+        sock.ev.on(
+            'messages.upsert',
+            async ({ messages }) => {
+
+                try {
+
+                    const msg =
+                        messages?.[0]
+
+                    if (
+                        !msg ||
+                        !msg.message
+                    ) {
+                        return
+                    }
+
+                    if (
+                        msg.key.remoteJid ===
+                        'status@broadcast'
+                    ) {
+                        return
+                    }
+
+                    const from =
+                        msg.key.remoteJid
+
+                    const isGroup =
+                        from.endsWith(
+                            '@g.us'
+                        )
+
+                    const sender =
+                        isGroup
+                            ? (
+                                msg.key.participant ||
+                                ''
+                              )
+                            : from
+
+                    // ========================================
+                    // DATABASE
+                    // ========================================
+
+                    try {
+
+                        getUser(sender)
+
+                        if (isGroup) {
+
+                            getGroup(from)
+                        }
+
+                    } catch {}
+
+                    // ========================================
+                    // AUTO READ
+                    // ========================================
+
+                    if (
+                        settings.autoRead
+                    ) {
+
+                        try {
+
+                            await sock.readMessages([
+                                msg.key
+                            ])
+
+                        } catch {}
+                    }
+
+                    // ========================================
+                    // VIEWONCE
+                    // ========================================
+
+                    if (
+
+                        settings.antiViewOnce &&
+
+                        autoViewOnceHandler
+
+                    ) {
+
+                        try {
+
+                            await autoViewOnceHandler(
+                                sock,
+                                messages
+                            )
+
+                        } catch {}
+                    }
+
+                    // ========================================
+                    // LISTENERS
+                    // ========================================
+
+                    try {
+
+                        await handleListeners(
+                            sock,
+                            messages
+                        )
+
+                    } catch (err) {
+
+                        console.log(
+                            'LISTENER ERROR:',
+                            err
+                        )
+                    }
+
+                    // ========================================
+                    // COMMANDS
+                    // ========================================
+
+                    try {
+
+                        await handleCommand(
+                            sock,
+                            msg
+                        )
+
+                    } catch (err) {
+
+                        console.log(
+                            'COMMAND ERROR:',
+                            err
+                        )
+                    }
+
+                } catch (err) {
+
+                    console.log(
+                        'MESSAGE ERROR:',
+                        err
+                    )
+                }
+            }
+        )
+
+        // ========================================
+        // CONNECTION UPDATE
+        // ========================================
+
+        sock.ev.on(
+            'connection.update',
+            ({
+                connection,
+                lastDisconnect
+            }) => {
+
+                try {
+
+                    const reason =
+
+                        lastDisconnect
+                            ?.error
+                            ?.output
+                            ?.statusCode
+
+                    if (
+                        connection ===
+                        'connecting'
+                    ) {
+
+                        console.log(
+                            chalk.yellow(
+                                'CONNECTING...'
+                            )
+                        )
+                    }
+
+                    if (
+                        connection ===
+                        'open'
+                    ) {
+
+                        reconnecting =
+                            false
+
+                        console.log(
+                            chalk.green(
+                                '\nBOT CONNECTED\n'
+                            )
+                        )
+
+                        console.log(
+                            chalk.cyan(
+                                `CONNECTED AS: ${sock.user?.id}`
+                            )
+                        )
+                    }
+
+                    if (
+                        connection ===
+                        'close'
+                    ) {
+
+                        console.log(
+                            chalk.red(
+                                `DISCONNECTED: ${reason}`
+                            )
+                        )
+
+                        // ========================================
+                        // LOGGED OUT
+                        // ========================================
+
+                        if (
+
+                            reason ===
+                            DisconnectReason.loggedOut ||
+
+                            reason === 401
+
+                        ) {
+
+                            console.log(
+                                chalk.red(
+                                    'SESSION LOGGED OUT'
+                                )
+                            )
+
+                            return
+                        }
+
+                        // ========================================
+                        // PREVENT LOOP
+                        // ========================================
+
+                        if (
+                            reconnecting
+                        ) {
+                            return
+                        }
+
+                        reconnecting =
+                            true
+
+                        console.log(
+                            chalk.yellow(
+                                'RECONNECTING...'
+                            )
+                        )
+
+                        setTimeout(
+                            () => {
+
+                                startBot()
+
+                            },
+                            settings.reconnectDelay ||
+                            5000
+                        )
+                    }
+
+                } catch (err) {
+
+                    console.log(
+                        'CONNECTION ERROR:',
+                        err
+                    )
+                }
+            }
+        )
+
+    } catch (err) {
+
+        console.log(
+            chalk.red(
+                'START BOT ERROR:'
+            )
+        )
+
+        console.log(err)
+
+        setTimeout(
+            () => {
+
+                startBot()
+
+            },
+            5000
+        )
+    }
+}
+
+// ========================================
+// START SERVER
+// ========================================
+
+const PORT =
+    process.env.PORT || 3000
+
+app.listen(PORT, () => {
+
+    console.log(
+        chalk.green(
+            `SERVER RUNNING ON ${PORT}`
+        )
+    )
+
+    startBot()
+})
