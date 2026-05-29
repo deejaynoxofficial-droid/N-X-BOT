@@ -25,12 +25,15 @@ const SESSION_PATH =
     './sessions'
 
 // ========================================
-// STATIC FILES
+// PUBLIC FOLDER
 // ========================================
 
 app.use(
     express.static(
-        path.join(__dirname)
+        path.join(
+            __dirname,
+            'public'
+        )
     )
 )
 
@@ -43,6 +46,7 @@ app.get('/', (req, res) => {
     res.sendFile(
         path.join(
             __dirname,
+            'public',
             'index.html'
         )
     )
@@ -71,8 +75,14 @@ app.get('/pair', async (req, res) => {
         }
 
         number =
-            number
-            .replace(/[^0-9]/g, '')
+            number.replace(
+                /[^0-9]/g,
+                ''
+            )
+
+        // ========================================
+        // AUTO FIX NUMBER
+        // ========================================
 
         if (
             number.startsWith('0')
@@ -127,7 +137,7 @@ app.get('/pair', async (req, res) => {
         }
 
         // ========================================
-        // CREATE SESSION
+        // CREATE AUTH
         // ========================================
 
         const {
