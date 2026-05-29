@@ -2,8 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const moment = require('moment-timezone')
 
-const settings =
-    require('../settings')
+const settings = require('../settings')
 
 // ========================================
 // GLOBAL STORAGE
@@ -50,13 +49,18 @@ function getCommandCount() {
 
                 try {
 
-                    const cmd =
-                        require(
-                            path.join(
-                                commandsPath,
-                                file
-                            )
+                    const filePath =
+                        path.join(
+                            commandsPath,
+                            file
                         )
+
+                    delete require.cache[
+                        require.resolve(filePath)
+                    ]
+
+                    const cmd =
+                        require(filePath)
 
                     return (
                         cmd &&
@@ -221,7 +225,7 @@ module.exports = {
                 return
             }
 
-            const sender = (
+            const rawSender = (
 
                 msg.key
                     ?.participant ||
@@ -230,8 +234,15 @@ module.exports = {
 
                 ''
 
-            ).split(':')[0] +
-            '@s.whatsapp.net'
+            )
+
+            const sender =
+                rawSender.includes(
+                    '@s.whatsapp.net'
+                )
+                    ? rawSender.split(':')[0]
+                    : rawSender.split(':')[0] +
+                      '@s.whatsapp.net'
 
             const pushName =
                 msg.pushName ||
@@ -417,7 +428,7 @@ ${settings.footer || ''}
                 return
             }
 
-            const sender = (
+            const rawSender = (
 
                 msg.key
                     ?.participant ||
@@ -426,8 +437,15 @@ ${settings.footer || ''}
 
                 ''
 
-            ).split(':')[0] +
-            '@s.whatsapp.net'
+            )
+
+            const sender =
+                rawSender.includes(
+                    '@s.whatsapp.net'
+                )
+                    ? rawSender.split(':')[0]
+                    : rawSender.split(':')[0] +
+                      '@s.whatsapp.net'
 
             const replyData =
                 global.menuReplies[
@@ -473,17 +491,21 @@ ${settings.footer || ''}
 
                 null
 
+            if (!quoted) {
+                return
+            }
+
             if (
-                !quoted ||
-                quoted !==
-                replyData.key
+                String(quoted).trim() !==
+                String(replyData.key).trim()
             ) {
                 return
             }
 
             const body =
-                getBody(msg)
-                    .trim()
+                String(
+                    getBody(msg) || ''
+                ).trim()
 
             if (!body) {
                 return
