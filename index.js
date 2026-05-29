@@ -804,7 +804,7 @@ async function startBot() {
 
                         await handleListeners(
                             sock,
-                            messages
+                            msg
                         )
 
                     } catch (err) {
