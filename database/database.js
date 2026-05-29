@@ -12,37 +12,17 @@ const databasePath =
     './database/database.json'
 
 //========================================
-// DATABASE FOLDER
+// CREATE FOLDER
 //========================================
 
 const databaseFolder =
     path.dirname(databasePath)
 
-//========================================
-// CREATE DATABASE FOLDER
-//========================================
+if (!fs.existsSync(databaseFolder)) {
 
-try {
-
-    if (
-        !fs.existsSync(databaseFolder)
-    ) {
-
-        fs.mkdirSync(
-            databaseFolder,
-            {
-                recursive: true
-            }
-        )
-    }
-
-} catch (err) {
-
-    console.log(
-        '❌ DATABASE FOLDER ERROR:'
-    )
-
-    console.log(err)
+    fs.mkdirSync(databaseFolder, {
+        recursive: true
+    })
 }
 
 //========================================
@@ -65,37 +45,7 @@ const defaultDatabase = {
             mode:
                 settings.publicMode
                     ? 'public'
-                    : 'private',
-
-            autoRead:
-                settings.autoRead || false,
-
-            autoTyping:
-                settings.autoTyping || false,
-
-            autoRecording:
-                settings.autoRecording || false,
-
-            autoSticker:
-                settings.autoSticker || false,
-
-            autoReply:
-                settings.autoReply || false,
-
-            autoReplyMessage:
-                '🤖 Hello, I am currently busy.',
-
-            autoViewOnce:
-                settings.antiViewOnce || false,
-
-            antiCall:
-                settings.antiCall || false
-        },
-
-        owner: {
-
-            numbers:
-                settings.ownerNumbers || []
+                    : 'private'
         }
     },
 
@@ -112,16 +62,14 @@ const defaultDatabase = {
 }
 
 //========================================
-// CREATE DATABASE FILE
+// CREATE DATABASE
 //========================================
 
 function createDatabase() {
 
     try {
 
-        if (
-            !fs.existsSync(databasePath)
-        ) {
+        if (!fs.existsSync(databasePath)) {
 
             fs.writeFileSync(
 
@@ -142,7 +90,7 @@ function createDatabase() {
     } catch (err) {
 
         console.log(
-            '❌ CREATE DATABASE ERROR:'
+            '❌ DATABASE CREATE ERROR'
         )
 
         console.log(err)
@@ -159,24 +107,12 @@ function loadDatabase() {
 
     try {
 
-        //========================================
-        // FILE NOT FOUND
-        //========================================
+        if (!fs.existsSync(databasePath)) {
 
-        if (
-            !fs.existsSync(databasePath)
-        ) {
-
-            saveDatabase(
-                defaultDatabase
-            )
+            createDatabase()
 
             return defaultDatabase
         }
-
-        //========================================
-        // READ FILE
-        //========================================
 
         const raw =
             fs.readFileSync(
@@ -184,91 +120,50 @@ function loadDatabase() {
                 'utf8'
             )
 
-        //========================================
-        // EMPTY FILE FIX
-        //========================================
+        if (!raw || raw.trim() === '') {
 
-        if (
-            !raw ||
-            raw.trim() === ''
-        ) {
-
-            console.log(
-                '⚠️ EMPTY DATABASE FIXED'
-            )
-
-            saveDatabase(
-                defaultDatabase
-            )
+            saveDatabase(defaultDatabase)
 
             return defaultDatabase
         }
-
-        //========================================
-        // SAFE JSON PARSE
-        //========================================
 
         let data
 
         try {
 
-            data =
-                JSON.parse(raw)
+            data = JSON.parse(raw)
 
-        } catch (parseError) {
+        } catch {
 
             console.log(
                 '❌ DATABASE CORRUPTED'
             )
 
-            console.log(parseError)
-
-            saveDatabase(
-                defaultDatabase
-            )
+            saveDatabase(defaultDatabase)
 
             return defaultDatabase
         }
 
-        //========================================
-        // INVALID OBJECT FIX
-        //========================================
-
-        if (
-            !data ||
-            typeof data !==
-            'object'
-        ) {
-
-            saveDatabase(
-                defaultDatabase
-            )
-
-            return defaultDatabase
-        }
-
-        //========================================
         // SAFE STRUCTURE
-        //========================================
 
-        data.users =
-            data.users || {}
+        if (!data.users)
+            data.users = {}
 
-        data.groups =
-            data.groups || {}
+        if (!data.groups)
+            data.groups = {}
 
-        data.settings =
-            data.settings || {}
+        if (!data.settings)
+            data.settings = {}
 
-        data.statistics =
-            data.statistics || {}
+        if (!data.statistics)
+            data.statistics = {}
 
         return data
 
     } catch (err) {
 
         console.log(
-            '❌ LOAD DATABASE ERROR:'
+            '❌ LOAD DATABASE ERROR'
         )
 
         console.log(err)
@@ -284,15 +179,6 @@ function loadDatabase() {
 function saveDatabase(data) {
 
     try {
-
-        if (
-            !data ||
-            typeof data !==
-            'object'
-        ) {
-
-            return false
-        }
 
         fs.writeFileSync(
 
@@ -310,7 +196,7 @@ function saveDatabase(data) {
     } catch (err) {
 
         console.log(
-            '❌ SAVE DATABASE ERROR:'
+            '❌ SAVE DATABASE ERROR'
         )
 
         console.log(err)
@@ -327,25 +213,12 @@ function getUser(id) {
 
     try {
 
-        if (
-            !id ||
-            typeof id !==
-            'string'
-        ) {
-
-            return null
-        }
+        if (!id) return null
 
         const db =
             loadDatabase()
 
-        //========================================
-        // CREATE USER
-        //========================================
-
-        if (
-            !db.users[id]
-        ) {
+        if (!db.users[id]) {
 
             db.users[id] = {
 
@@ -373,7 +246,7 @@ function getUser(id) {
     } catch (err) {
 
         console.log(
-            '❌ GET USER ERROR:'
+            '❌ GET USER ERROR'
         )
 
         console.log(err)
@@ -390,49 +263,24 @@ function getGroup(id) {
 
     try {
 
-        if (
-            !id ||
-            typeof id !==
-            'string'
-        ) {
-
-            return null
-        }
+        if (!id) return null
 
         const db =
             loadDatabase()
 
-        //========================================
-        // CREATE GROUP
-        //========================================
-
-        if (
-            !db.groups[id]
-        ) {
+        if (!db.groups[id]) {
 
             db.groups[id] = {
 
-                welcome:
-                    settings.welcome || false,
+                welcome: false,
 
-                goodbye:
-                    settings.goodbye || false,
+                goodbye: false,
 
                 mute: false,
 
-                nsfw:
-                    settings.nsfw || false,
+                antiLink: false,
 
-                adminsOnly: false,
-
-                antiLink:
-                    settings.antiLink || false,
-
-                antiBadword:
-                    settings.antiBadword || false,
-
-                antiSpam:
-                    settings.antiSpam || false
+                antiSpam: false
             }
 
             saveDatabase(db)
@@ -443,7 +291,7 @@ function getGroup(id) {
     } catch (err) {
 
         console.log(
-            '❌ GET GROUP ERROR:'
+            '❌ GET GROUP ERROR'
         )
 
         console.log(err)
@@ -463,16 +311,7 @@ function updateStats(type) {
         const db =
             loadDatabase()
 
-        if (
-            !db.statistics
-        ) {
-
-            db.statistics = {}
-        }
-
-        if (
-            !db.statistics[type]
-        ) {
+        if (!db.statistics[type]) {
 
             db.statistics[type] = 0
         }
@@ -484,7 +323,7 @@ function updateStats(type) {
     } catch (err) {
 
         console.log(
-            '❌ UPDATE STATS ERROR:'
+            '❌ UPDATE STATS ERROR'
         )
 
         console.log(err)
