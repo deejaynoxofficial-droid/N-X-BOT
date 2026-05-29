@@ -5,16 +5,16 @@ const moment = require('moment-timezone')
 const settings =
     require('../settings')
 
-//========================================
+// ========================================
 // GLOBAL STORAGE
-//========================================
+// ========================================
 
 global.menuReplies =
     global.menuReplies || {}
 
-//========================================
+// ========================================
 // PATHS
-//========================================
+// ========================================
 
 const commandsPath =
     path.join(
@@ -22,9 +22,9 @@ const commandsPath =
         '../commands'
     )
 
-//========================================
+// ========================================
 // COMMAND COUNT
-//========================================
+// ========================================
 
 function getCommandCount() {
 
@@ -46,6 +46,31 @@ function getCommandCount() {
             .filter(file =>
                 file.endsWith('.js')
             )
+            .filter(file => {
+
+                try {
+
+                    const cmd =
+                        require(
+                            path.join(
+                                commandsPath,
+                                file
+                            )
+                        )
+
+                    return (
+                        cmd &&
+                        cmd.name &&
+                        typeof cmd.execute ===
+                        'function'
+                    )
+
+                } catch {
+
+                    return false
+                }
+
+            })
             .length
 
     } catch {
@@ -54,9 +79,9 @@ function getCommandCount() {
     }
 }
 
-//========================================
+// ========================================
 // AUTO CLEAN MENU REPLIES
-//========================================
+// ========================================
 
 setInterval(() => {
 
@@ -84,11 +109,12 @@ setInterval(() => {
         })
 
     } catch {}
-}, 60000)
 
-//========================================
+}, 60000).unref()
+
+// ========================================
 // GET MESSAGE BODY
-//========================================
+// ========================================
 
 function getBody(msg) {
 
@@ -148,9 +174,9 @@ function getBody(msg) {
     }
 }
 
-//========================================
-// MENU EXPORT
-//========================================
+// ========================================
+// EXPORT
+// ========================================
 
 module.exports = {
 
@@ -166,9 +192,9 @@ module.exports = {
     description:
         'Grouped menu system',
 
-    //========================================
+    // ========================================
     // EXECUTE MENU
-    //========================================
+    // ========================================
 
     async execute(
         sock,
@@ -204,7 +230,8 @@ module.exports = {
 
                 ''
 
-            ).split(':')[0]
+            ).split(':')[0] +
+            '@s.whatsapp.net'
 
             const pushName =
                 msg.pushName ||
@@ -261,9 +288,9 @@ ${settings.footer || ''}
 
             let sentMessage
 
-            //========================================
+            // ========================================
             // SEND IMAGE MENU
-            //========================================
+            // ========================================
 
             try {
 
@@ -332,9 +359,9 @@ ${settings.footer || ''}
                     )
             }
 
-            //========================================
+            // ========================================
             // SAVE MENU SESSION
-            //========================================
+            // ========================================
 
             global.menuReplies[
                 sender
@@ -365,9 +392,9 @@ ${settings.footer || ''}
         }
     },
 
-    //========================================
-    // MENU REPLY HANDLER
-    //========================================
+    // ========================================
+    // REPLY HANDLER
+    // ========================================
 
     async replyHandler(
         sock,
@@ -399,7 +426,8 @@ ${settings.footer || ''}
 
                 ''
 
-            ).split(':')[0]
+            ).split(':')[0] +
+            '@s.whatsapp.net'
 
             const replyData =
                 global.menuReplies[
@@ -412,9 +440,9 @@ ${settings.footer || ''}
                 return
             }
 
-            //========================================
+            // ========================================
             // SAFE QUOTED CHECK
-            //========================================
+            // ========================================
 
             const quoted =
 
@@ -433,6 +461,16 @@ ${settings.footer || ''}
                     ?.contextInfo
                     ?.stanzaId ||
 
+                msg.message
+                    ?.buttonsResponseMessage
+                    ?.contextInfo
+                    ?.stanzaId ||
+
+                msg.message
+                    ?.listResponseMessage
+                    ?.contextInfo
+                    ?.stanzaId ||
+
                 null
 
             if (
@@ -442,10 +480,6 @@ ${settings.footer || ''}
             ) {
                 return
             }
-
-            //========================================
-            // GET REPLY TEXT
-            //========================================
 
             const body =
                 getBody(msg)
@@ -457,10 +491,6 @@ ${settings.footer || ''}
 
             const prefix =
                 replyData.prefix
-
-            //========================================
-            // MENU LISTS
-            //========================================
 
             const menus = {
 
@@ -480,8 +510,6 @@ ${settings.footer || ''}
 ┃ ${prefix}repo
 ┃ ${prefix}setname
 ┃ ${prefix}setbio
-┃ ${prefix}setbotdp
-┃ ${prefix}setprefix
 ╰━━━━━━━━━━━━━━━━━━⬣
 `,
 
@@ -491,8 +519,6 @@ ${settings.footer || ''}
 ┃ ${prefix}kick
 ┃ ${prefix}promote
 ┃ ${prefix}demote
-┃ ${prefix}mute
-┃ ${prefix}antilink
 ╰━━━━━━━━━━━━━━━━━━⬣
 `,
 
@@ -501,17 +527,12 @@ ${settings.footer || ''}
 ┃ ${prefix}weather
 ┃ ${prefix}news
 ┃ ${prefix}movie
-┃ ${prefix}anime
-┃ ${prefix}song
 ╰━━━━━━━━━━━━━━━━━━⬣
 `,
 
                 '5': `
 ╭━━━〔 📥 DOWNLOAD MENU 〕━━━⬣
 ┃ ${prefix}play
-┃ ${prefix}video
-┃ ${prefix}tiktok
-┃ ${prefix}instagram
 ┃ ${prefix}ytmp3
 ┃ ${prefix}ytmp4
 ╰━━━━━━━━━━━━━━━━━━⬣
@@ -521,20 +542,15 @@ ${settings.footer || ''}
 ╭━━━〔 🛠️ TOOLS MENU 〕━━━⬣
 ┃ ${prefix}sticker
 ┃ ${prefix}tourl
-┃ ${prefix}toimg
-┃ ${prefix}translate
 ┃ ${prefix}qr
 ╰━━━━━━━━━━━━━━━━━━⬣
 `,
 
                 '7': `
 ╭━━━〔 🎭 FUN MENU 〕━━━⬣
-┃ ${prefix}quote
 ┃ ${prefix}joke
-┃ ${prefix}fact
 ┃ ${prefix}truth
 ┃ ${prefix}dare
-┃ ${prefix}ai
 ╰━━━━━━━━━━━━━━━━━━⬣
 `
             }
@@ -542,15 +558,9 @@ ${settings.footer || ''}
             const response =
                 menus[body]
 
-            if (
-                !response
-            ) {
+            if (!response) {
                 return
             }
-
-            //========================================
-            // SEND MENU RESPONSE
-            //========================================
 
             await sock.sendMessage(
 
