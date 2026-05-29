@@ -7,35 +7,6 @@ const path = require('path')
 
 const listeners = []
 
-//========================================
-// MENU REPLY HANDLER
-//========================================
-
-let menuReplyHandler =
-    null
-
-try {
-
-    const menuCommand =
-        require('../commands/menu')
-
-    if (
-        typeof menuCommand.replyHandler ===
-        'function'
-    ) {
-
-        menuReplyHandler =
-            menuCommand.replyHandler
-    }
-
-} catch (error) {
-
-    console.log(
-        '❌ FAILED TO LOAD MENU HANDLER'
-    )
-
-    console.log(error)
-}
 
 //========================================
 // LISTENER PATH
@@ -188,31 +159,7 @@ async function handleListeners(
         ) {
             return
         }
-
-        //========================================
-        // MENU REPLY
-        //========================================
-
-        try {
-
-            if (
-                menuReplyHandler
-            ) {
-
-                await menuReplyHandler(
-                    sock,
-                    msg
-                )
-            }
-
-        } catch (menuError) {
-
-            console.log(
-                '❌ MENU REPLY ERROR'
-            )
-
-            console.log(menuError)
-        }
+        
 
         //========================================
         // EXECUTE LISTENERS
