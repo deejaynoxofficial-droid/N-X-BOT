@@ -1,0 +1,676 @@
+require('dotenv').config()
+
+//========================================
+// EXPRESS SERVER (RENDER SAFE)
+//========================================
+
+const express = require('express')
+
+const app = express()
+
+app.get('/', (req, res) => {
+    res.send('NOX-SPARROW BOT RUNNING')
+})
+
+const PORT = process.env.PORT || 3000
+
+app.listen(PORT, () => {
+
+    console.log(
+        `SERVER RUNNING ON PORT ${PORT}`
+    )
+})
+
+//========================================
+// IMPORTS
+//========================================
+
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason,
+    fetchLatestBaileysVersion
+} = require('@whiskeysockets/baileys')
+
+const pino = require('pino')
+const fs = require('fs')
+const path = require('path')
+const readline = require('readline')
+
+const chalkImport = require('chalk')
+
+const chalk =
+    chalkImport.default ||
+    chalkImport
+
+const settings = require('./settings')
+
+const {
+    handleCommand
+} = require('./handler/commandHandler')
+
+const {
+    handleListeners
+} = require('./handler/listenerHandler')
+
+const {
+    getUser,
+    getGroup
+} = require('./database/database')
+
+//========================================
+// OPTIONAL HANDLER
+//========================================
+
+let autoViewOnceHandler = null
+
+try {
+
+    autoViewOnceHandler =
+        require('./handler/autoViewOnce')
+
+} catch {}
+
+//========================================
+// GLOBAL SOCKET PROTECTION
+//========================================
+
+let reconnecting = false
+let activeSocket = null
+
+//========================================
+// QUESTION PROMPT
+//========================================
+
+async function question(text) {
+
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    })
+
+    return new Promise(resolve => {
+
+        rl.question(text, answer => {
+
+            rl.close()
+
+            resolve(answer)
+        })
+    })
+}
+
+//========================================
+// CREATE REQUIRED FOLDERS
+//========================================
+
+function createFolders() {
+
+    const folders = [
+
+        settings.sessionFolder,
+
+        settings.tempFolder,
+
+        settings.logsFolder,
+
+        path.dirname(settings.database),
+
+        './temp/audio',
+
+        './temp/video',
+
+        './temp/image',
+
+        './temp/sticker',
+
+        './temp/downloads'
+    ]
+
+    for (const folder of folders) {
+
+        if (
+            folder &&
+            !fs.existsSync(folder)
+        ) {
+
+            fs.mkdirSync(folder, {
+                recursive: true
+            })
+        }
+    }
+}
+
+//========================================
+// START BOT
+//========================================
+
+async function startBot() {
+
+    try {
+
+        //========================================
+        // PREVENT DUPLICATE SOCKETS
+        //========================================
+
+        if (activeSocket) {
+
+            try {
+
+                activeSocket.end()
+
+            } catch {}
+        }
+
+        //========================================
+        // CREATE FOLDERS
+        //========================================
+
+        createFolders()
+
+        //========================================
+        // AUTH STATE
+        //========================================
+
+        const {
+            state,
+            saveCreds
+        } = await useMultiFileAuthState(
+            settings.sessionFolder
+        )
+
+        //========================================
+        // BAILEYS VERSION
+        //========================================
+
+        const {
+            version
+        } = await fetchLatestBaileysVersion()
+
+        console.log(
+            chalk.cyan(
+                `USING BAILEYS VERSION: ${version}`
+            )
+        )
+
+        //========================================
+        // CREATE SOCKET
+        //========================================
+
+        const sock = makeWASocket({
+
+            logger: pino({
+                level: 'silent'
+            }),
+
+            auth: state,
+
+            version,
+
+            browser: [
+
+                settings.botName ||
+                'NOX-SPARROW',
+
+                'Chrome',
+
+                '1.0.0'
+            ],
+
+            printQRInTerminal: false,
+
+            syncFullHistory: false,
+
+            markOnlineOnConnect: true,
+
+            defaultQueryTimeoutMs: 60000,
+
+            connectTimeoutMs: 60000,
+
+            keepAliveIntervalMs: 10000,
+
+            emitOwnEvents: false,
+
+            fireInitQueries: true,
+
+            generateHighQualityLinkPreview: true
+        })
+
+        activeSocket = sock
+
+        //========================================
+        // PAIRING CODE
+        //========================================
+
+        if (!sock.authState.creds.registered) {
+
+            try {
+
+                const phoneNumber =
+                    process.env.PHONE_NUMBER
+
+                if (!phoneNumber) {
+
+                    console.log(
+                        chalk.red(
+                            'PHONE_NUMBER missing in .env'
+                        )
+                    )
+
+                    process.exit(1)
+                }
+
+                console.log(
+                    chalk.yellow(
+                        'PREPARING PAIRING CODE...'
+                    )
+                )
+
+                // WAIT FOR STABLE CONNECTION
+                await new Promise(resolve =>
+                    setTimeout(resolve, 10000)
+                )
+
+                const code =
+                    await sock.requestPairingCode(
+                        phoneNumber.trim()
+                    )
+
+                console.log(
+chalk.green(`
+╭──────────────────────────╮
+│   WHATSAPP PAIRING CODE  │
+├──────────────────────────┤
+│      ${code}      │
+╰──────────────────────────╯
+`)
+                )
+
+            } catch (err) {
+
+                console.log(
+                    chalk.red(
+                        'PAIRING ERROR:'
+                    ),
+                    err
+                )
+            }
+        }
+
+        //========================================
+        // SAVE CREDS
+        //========================================
+
+        sock.ev.on(
+            'creds.update',
+            saveCreds
+        )
+
+        //========================================
+        // MESSAGE EVENT
+        //========================================
+
+        sock.ev.on(
+            'messages.upsert',
+            async ({ messages }) => {
+
+                try {
+
+                    const msg = messages?.[0]
+
+                    if (
+                        !msg ||
+                        !msg.message
+                    ) {
+                        return
+                    }
+
+                    //========================================
+                    // IGNORE STATUS
+                    //========================================
+
+                    if (
+                        msg.key.remoteJid ===
+                        'status@broadcast'
+                    ) {
+                        return
+                    }
+
+                    const from =
+                        msg.key.remoteJid
+
+                    const isGroup =
+                        from.endsWith('@g.us')
+
+                    const sender =
+                        isGroup
+                            ? (
+                                msg.key.participant ||
+                                ''
+                              )
+                            : from
+
+                    //========================================
+                    // DATABASE INIT
+                    //========================================
+
+                    try {
+
+                        getUser(sender)
+
+                        if (isGroup) {
+                            getGroup(from)
+                        }
+
+                    } catch (dbError) {
+
+                        console.log(
+                            chalk.red(
+                                'DATABASE ERROR:'
+                            ),
+                            dbError
+                        )
+                    }
+
+                    //========================================
+                    // AUTO READ
+                    //========================================
+
+                    if (settings.autoRead) {
+
+                        try {
+
+                            await sock.readMessages([
+                                msg.key
+                            ])
+
+                        } catch {}
+                    }
+
+                    //========================================
+                    // AUTO TYPING
+                    //========================================
+
+                    if (settings.autoTyping) {
+
+                        try {
+
+                            await sock.sendPresenceUpdate(
+                                'composing',
+                                from
+                            )
+
+                        } catch {}
+                    }
+
+                    //========================================
+                    // AUTO RECORDING
+                    //========================================
+
+                    if (settings.autoRecording) {
+
+                        try {
+
+                            await sock.sendPresenceUpdate(
+                                'recording',
+                                from
+                            )
+
+                        } catch {}
+                    }
+
+                    //========================================
+                    // AUTO VIEW ONCE
+                    //========================================
+
+                    if (
+                        settings.antiViewOnce &&
+                        autoViewOnceHandler
+                    ) {
+
+                        try {
+
+                            await autoViewOnceHandler(
+                                sock,
+                                messages
+                            )
+
+                        } catch (viewError) {
+
+                            console.log(
+                                chalk.red(
+                                    'AUTO VIEWONCE ERROR:'
+                                ),
+                                viewError
+                            )
+                        }
+                    }
+
+                    //========================================
+                    // LISTENER HANDLER
+                    //========================================
+
+                    try {
+
+                        await handleListeners(
+                            sock,
+                            messages
+                        )
+
+                    } catch (listenerError) {
+
+                        console.log(
+                            chalk.red(
+                                'LISTENER ERROR:'
+                            ),
+                            listenerError
+                        )
+                    }
+
+                    //========================================
+                    // AUTO REPLY
+                    //========================================
+
+                    if (
+                        global.autoReplyEnabled === true
+                    ) {
+
+                        try {
+
+                            const body =
+
+                                msg.message
+                                    ?.conversation ||
+
+                                msg.message
+                                    ?.extendedTextMessage
+                                    ?.text ||
+
+                                msg.message
+                                    ?.imageMessage
+                                    ?.caption ||
+
+                                msg.message
+                                    ?.videoMessage
+                                    ?.caption ||
+
+                                ''
+
+                            if (
+                                body &&
+                                !body.startsWith(
+                                    settings.prefix
+                                )
+                            ) {
+
+                                await sock.sendMessage(
+                                    from,
+                                    {
+                                        text:
+                                            global.autoReplyMessage ||
+                                            '🤖 I am busy right now.'
+                                    }
+                                )
+                            }
+
+                        } catch {}
+                    }
+
+                    //========================================
+                    // COMMAND HANDLER
+                    //========================================
+
+                    try {
+
+                        await handleCommand(
+                            sock,
+                            msg
+                        )
+
+                    } catch (cmdError) {
+
+                        console.log(
+                            chalk.red(
+                                'COMMAND ERROR:'
+                            ),
+                            cmdError
+                        )
+                    }
+
+                } catch (err) {
+
+                    console.log(
+                        chalk.red(
+                            'MESSAGE EVENT ERROR:'
+                        ),
+                        err
+                    )
+                }
+            }
+        )
+
+        //========================================
+        // CONNECTION UPDATE
+        //========================================
+
+        sock.ev.on(
+            'connection.update',
+            async ({
+                connection,
+                lastDisconnect
+            }) => {
+
+                try {
+
+                    const statusCode =
+                        lastDisconnect?.error?.output?.statusCode
+
+                    //========================================
+                    // CONNECTING
+                    //========================================
+
+                    if (connection === 'connecting') {
+
+                        console.log(
+                            chalk.yellow(
+                                'CONNECTING TO WHATSAPP...'
+                            )
+                        )
+                    }
+
+                    //========================================
+                    // OPEN
+                    //========================================
+
+                    if (connection === 'open') {
+
+                        reconnecting = false
+
+                        console.log(
+chalk.green(
+'\nBOT CONNECTED SUCCESSFULLY\n'
+)
+                        )
+
+                        console.log(
+chalk.cyan(
+`CONNECTED AS: ${sock.user?.id || 'UNKNOWN'}\n`
+)
+                        )
+                    }
+
+                    //========================================
+                    // CLOSE
+                    //========================================
+
+                    if (connection === 'close') {
+
+                        console.log(
+chalk.red(
+`CONNECTION CLOSED | STATUS: ${statusCode}`
+)
+                        )
+
+                        // LOGGED OUT
+                        if (
+                            statusCode === DisconnectReason.loggedOut ||
+                            statusCode === 401
+                        ) {
+
+                            console.log(
+chalk.red(
+'SESSION LOGGED OUT. DELETE SESSION FILES.'
+)
+                            )
+
+                            return
+                        }
+
+                        // AVOID MULTIPLE RECONNECTS
+                        if (reconnecting) return
+
+                        reconnecting = true
+
+                        console.log(
+chalk.yellow(
+'RECONNECTING IN 5 SECONDS...'
+)
+                        )
+
+                        setTimeout(() => {
+                            startBot()
+                        }, 5000)
+                    }
+
+                } catch (connError) {
+
+                    console.log(
+                        chalk.red(
+                            'CONNECTION ERROR:'
+                        ),
+                        connError
+                    )
+                }
+            }
+        )
+
+    } catch (error) {
+
+        console.log(
+            chalk.red(
+                'START BOT ERROR:'
+            ),
+            error
+        )
+
+        setTimeout(() => {
+            startBot()
+        }, 5000)
+    }
+}
+
+//========================================
+// START BOT
+//========================================
+
+startBot()
