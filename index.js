@@ -256,7 +256,6 @@ app.get('/pair', async (req, res) => {
 // ========================================
 // START SERVER
 // ========================================
-
 app.listen(PORT, () => {
 
     console.log(`
@@ -265,32 +264,7 @@ app.listen(PORT, () => {
 ┃ 🌐 PORT: ${PORT}
 ┃ ⚡ SYSTEM ONLINE
 ╰━━━━━━━━━━━━━━━━━━━━━━⬣
-`)}
+`)
 
-    function loadAllSessions() {
-
-    const sessions = fs.readdirSync(SESSIONS_DIR)
-
-    let loaded = 0
-
-    for (const session of sessions) {
-
-        const sessionPath = path.join(SESSIONS_DIR, session)
-
-        try {
-
-            if (!fs.statSync(sessionPath).isDirectory()) {
-                console.log(`⚠️ Skipping invalid session: ${session}`)
-                continue
-            }
-
-            startBot(session)
-            loaded++
-
-        } catch (err) {
-            console.log(`⚠️ Failed loading ${session}:`, err.message)
-        }
-    }
-
-    console.log(`📦 Loaded ${loaded} session(s)`)
-    }
+    loadAllSessions()
+})
