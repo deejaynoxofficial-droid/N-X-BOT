@@ -27,6 +27,10 @@ const {
     handleListeners
 } = require('./handler/listenerHandler')
 
+const {
+    antiDelete
+} = require('./handler/antiDelete')
+
 // optional auto view once (safe fallback)
 let autoViewOnceHandler = null
 try {
@@ -113,6 +117,9 @@ async function startBot(sessionId) {
 
         try {
 
+            //antiDelete
+            await antiDelete(sock, { messages: [msg] })
+            
             // listeners first
             await handleListeners(sock, msg)
 
