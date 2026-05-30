@@ -109,7 +109,7 @@ app.get('/pair', async (req, res) => {
             version,
 
             logger: pino({
-                level: 'silent'
+                level: 'info'
             }),
 
             browser: [
