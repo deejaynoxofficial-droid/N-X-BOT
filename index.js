@@ -159,17 +159,35 @@ app.get('/pair', async (req, res) => {
             saveCreds
         )
 
-        const code =
-            await sock.requestPairingCode(
-                number
-            )
+        try {
 
-        console.log(
-            'PAIR CODE:',
-            code
+    const code =
+        await sock.requestPairingCode(
+            number
         )
 
-        return res.send(code)
+    console.log(
+        'PAIR CODE:',
+        code
+    )
+
+    return res.send(code)
+
+} catch (err) {
+
+    console.error(
+        'PAIR CODE ERROR:',
+        err
+    )
+
+    return res
+        .status(500)
+        .send(
+            String(
+                err?.message || err
+            )
+        )
+        }
 
     catch (err) {
 
