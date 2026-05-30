@@ -1,4 +1,9 @@
-const chalk = require('chalk')
+const chalkImport =
+    require('chalk')
+
+const chalk =
+    chalkImport.default ||
+    chalkImport
 
 console.log(
     chalk.yellow(
