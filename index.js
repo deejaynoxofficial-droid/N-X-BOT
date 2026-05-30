@@ -265,7 +265,7 @@ app.listen(PORT, () => {
 ┃ 🌐 PORT: ${PORT}
 ┃ ⚡ SYSTEM ONLINE
 ╰━━━━━━━━━━━━━━━━━━━━━━⬣
-`)
+`)}
 
     function loadAllSessions() {
 
