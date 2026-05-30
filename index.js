@@ -1,9 +1,5 @@
 require('dotenv').config()
 
-// ========================================
-// CORE IMPORTS
-// ========================================
-
 const express = require('express')
 const fs = require('fs')
 const path = require('path')
@@ -17,34 +13,14 @@ const {
     Browsers
 } = require('@whiskeysockets/baileys')
 
-const settings = require('./settings')
-
-const {
-    handleCommand
-} = require('./handler/commandHandler')
-
-const {
-    handleListeners
-} = require('./handler/listenerHandler')
-
-const {
-    antiDelete
-} = require('./handler/antiDelete')
-
-// optional auto view once (safe fallback)
-let autoViewOnceHandler = null
-try {
-    autoViewOnceHandler = require('./handler/autoViewOnce')
-} catch {}
-
-// ========================================
-// EXPRESS APP
-// ========================================
-
 const app = express()
 const PORT = process.env.PORT || 3000
 
-app.use(express.json())
+const SESSION_PATH = './sessions'
+
+// ========================================
+// STATIC FILES
+// ========================================
 app.use(express.static(path.join(__dirname, 'public')))
 
 app.get('/', (req, res) => {
@@ -52,142 +28,8 @@ app.get('/', (req, res) => {
 })
 
 // ========================================
-// SESSION STORAGE (MULTI ACCOUNT)
+// PAIR ROUTE (FIXED)
 // ========================================
-
-const SESSIONS_DIR = path.join(__dirname, 'sessions')
-if (!fs.existsSync(SESSIONS_DIR)) {
-    fs.mkdirSync(SESSIONS_DIR, { recursive: true })
-}
-
-// store active sockets per account
-const sockets = new Map()
-
-// ========================================
-// UTIL: START BOT INSTANCE
-// ========================================
-
-async function startBot(sessionId) {
-
-    const sessionPath = path.join(SESSIONS_DIR, sessionId)
-
-    if (!fs.existsSync(sessionPath)) {
-        fs.mkdirSync(sessionPath, { recursive: true })
-    }
-
-    const { state, saveCreds } =
-        await useMultiFileAuthState(sessionPath)
-
-    const { version } =
-        await fetchLatestBaileysVersion()
-
-    const sock = makeWASocket({
-
-        version,
-        auth: state,
-
-        logger: pino({ level: 'silent' }),
-
-        browser: Browsers.windows('Chrome'),
-
-        printQRInTerminal: false,
-        markOnlineOnConnect: true,
-        syncFullHistory: false,
-
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 10000
-    })
-
-    sockets.set(sessionId, sock)
-
-    // save session
-    sock.ev.on('creds.update', saveCreds)
-
-    // ========================================
-    // MESSAGE HANDLER
-    // ========================================
-
-    sock.ev.on('messages.upsert', async ({ messages }) => {
-
-        const msg = messages?.[0]
-        if (!msg || !msg.message) return
-
-        const from = msg.key.remoteJid
-        if (from === 'status@broadcast') return
-
-        try {
-
-            //antiDelete
-            await antiDelete(sock, { messages: [msg] })
-            
-            // listeners first
-            await handleListeners(sock, msg)
-
-            // auto view once
-            if (autoViewOnceHandler && settings.antiViewOnce) {
-                await autoViewOnceHandler(sock, msg)
-            }
-
-            // commands
-            await handleCommand(sock, msg)
-
-        } catch (err) {
-            console.log('MESSAGE ERROR:', err)
-        }
-    })
-
-    // ========================================
-    // CONNECTION HANDLER
-    // ========================================
-
-    sock.ev.on('connection.update', (update) => {
-
-        const { connection, lastDisconnect } = update
-
-        if (connection === 'open') {
-            console.log(`✅ BOT CONNECTED: ${sessionId}`)
-        }
-
-        if (connection === 'close') {
-
-            const reason =
-                lastDisconnect?.error?.output?.statusCode
-
-            console.log(`❌ DISCONNECTED: ${sessionId}`, reason)
-
-            if (reason !== DisconnectReason.loggedOut) {
-
-                console.log(`♻️ RECONNECTING: ${sessionId}`)
-
-                setTimeout(() => {
-                    startBot(sessionId)
-                }, 5000)
-            }
-        }
-    })
-
-    return sock
-}
-
-// ========================================
-// AUTO LOAD MULTI ACCOUNTS
-// ========================================
-
-function loadAllSessions() {
-
-    const sessions = fs.readdirSync(SESSIONS_DIR)
-
-    for (const session of sessions) {
-        startBot(session)
-    }
-
-    console.log(`📦 Loaded ${sessions.length} session(s)`)
-}
-
-// ========================================
-// PAIR ROUTE (MULTI ACCOUNT)
-// ========================================
-
 app.get('/pair', async (req, res) => {
 
     try {
@@ -198,21 +40,21 @@ app.get('/pair', async (req, res) => {
             return res.status(400).send('ENTER NUMBER')
         }
 
-        number = String(number).replace(/[^0-9]/g, '')
+        number = number.replace(/[^0-9]/g, '')
 
-        if (number.startsWith('0')) {
-            number = '256' + number.slice(1)
+        if (number.length < 10) {
+            return res.status(400).send('INVALID NUMBER')
         }
 
-        const sessionId = number
-        const sessionPath = path.join(SESSIONS_DIR, sessionId)
+        console.log('PAIR REQUEST:', number)
 
-        if (!fs.existsSync(sessionPath)) {
-            fs.mkdirSync(sessionPath, { recursive: true })
+        // DO NOT DELETE SESSION EVERY TIME (FIX)
+        if (!fs.existsSync(SESSION_PATH)) {
+            fs.mkdirSync(SESSION_PATH, { recursive: true })
         }
 
         const { state, saveCreds } =
-            await useMultiFileAuthState(sessionPath)
+            await useMultiFileAuthState(SESSION_PATH)
 
         const { version } =
             await fetchLatestBaileysVersion()
@@ -226,16 +68,43 @@ app.get('/pair', async (req, res) => {
 
             browser: Browsers.windows('Chrome'),
 
-            printQRInTerminal: false
+            printQRInTerminal: false,
+            markOnlineOnConnect: false
         })
 
         sock.ev.on('creds.update', saveCreds)
 
-        await new Promise(resolve => setTimeout(resolve, 3000))
+        // ========================================
+        // REAL CONNECTION WAIT (FIX)
+        // ========================================
+        await new Promise((resolve, reject) => {
 
+            const timeout = setTimeout(() => {
+                reject(new Error('CONNECTION TIMEOUT'))
+            }, 30000)
+
+            sock.ev.on('connection.update', (update) => {
+
+                const { connection } = update
+
+                if (connection === 'open') {
+                    clearTimeout(timeout)
+                    resolve(true)
+                }
+
+                if (connection === 'close') {
+                    clearTimeout(timeout)
+                    reject(new Error('CONNECTION CLOSED'))
+                }
+            })
+        })
+
+        // ========================================
+        // REQUEST CODE
+        // ========================================
         const code = await sock.requestPairingCode(number)
 
-        console.log(`📲 PAIR CODE (${number}):`, code)
+        console.log('PAIR CODE:', code)
 
         return res.json({
             status: true,
@@ -244,11 +113,11 @@ app.get('/pair', async (req, res) => {
 
     } catch (err) {
 
-        console.log('PAIR ERROR:', err)
+        console.error('PAIR ERROR:', err)
 
         return res.status(500).json({
             status: false,
-            message: 'PAIRING FAILED'
+            message: err.message || 'PAIR FAILED'
         })
     }
 })
@@ -257,14 +126,5 @@ app.get('/pair', async (req, res) => {
 // START SERVER
 // ========================================
 app.listen(PORT, () => {
-
-    console.log(`
-╭━━━━━━━━━━━━━━━━━━━━━━⬣
-┃ 🤖 NOX-SPARROW MULTI BOT
-┃ 🌐 PORT: ${PORT}
-┃ ⚡ SYSTEM ONLINE
-╰━━━━━━━━━━━━━━━━━━━━━━⬣
-`)
-
-    loadAllSessions()
+    console.log(`SERVER RUNNING ON ${PORT}`)
 })
