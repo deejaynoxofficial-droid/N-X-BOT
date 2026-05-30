@@ -104,20 +104,26 @@ app.get('/pair', async (req, res) => {
 
         const sock = makeWASocket({
 
-            auth: state,
+    auth: state,
 
-            version,
+    version,
 
-            logger: pino({
-                level: 'info'
-            }),
+    logger: pino({
+        level: 'silent'
+    }),
 
-            browser: [
-                'NOX-SPARROW',
-                'Chrome',
-                '1.0.0'
-            ]
-        })
+    browser: [
+        'Ubuntu',
+        'Chrome',
+        '20.0.04'
+    ],
+
+    markOnlineOnConnect: false,
+
+    syncFullHistory: false,
+
+    generateHighQualityLinkPreview: false
+})
 
         sock.ev.on(
             'creds.update',
@@ -139,10 +145,14 @@ app.get('/pair', async (req, res) => {
 
         try {
 
-            const code =
-                await sock.requestPairingCode(
-                    number
-                )
+            await new Promise(resolve =>
+    setTimeout(resolve, 5000)
+)
+
+const code =
+    await sock.requestPairingCode(
+        number
+    )
 
             clearTimeout(timeout)
 
