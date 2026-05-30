@@ -1,7 +1,13 @@
-const { runtime } = require('../lib/functions')
+const { runtime } =
+    require('../utils/functions')
 
 module.exports = {
     name: 'uptime',
+
+    aliases: [
+        'runtime',
+        'alive'
+    ],
 
     async execute(sock, msg) {
 
@@ -31,9 +37,10 @@ module.exports = {
 ┃
 ╰━━━━━━━━━━━━━━━━━━⬣`
 
-            await sock.sendMessage(from, {
-                text
-            })
+            await sock.sendMessage(
+                from,
+                { text }
+            )
 
         } catch (error) {
 
@@ -44,10 +51,13 @@ module.exports = {
 
             try {
 
-                await sock.sendMessage(from, {
-                    text:
-                        '❌ Failed to fetch uptime.'
-                })
+                await sock.sendMessage(
+                    from,
+                    {
+                        text:
+                            '❌ Failed to fetch uptime.'
+                    }
+                )
 
             } catch {}
         }
