@@ -2,268 +2,104 @@ require('dotenv').config()
 
 module.exports = {
 
-    //========================================
-    // BOT INFORMATION
-    //========================================
+    // BOT INFO
+    botName: '𝙽𝙾𝚇 𝚂𝙿𝙰𝚁𝚁𝙾𝚆 𝙱𝙾𝚃',
+    botVersion: '1.0.0',
 
-    botName:
-        '𝙽𝙾𝚇 𝚂𝙿𝙰𝚁𝚁𝙾𝚆 𝙱𝙾𝚃',
+    ownerName: 'NOX STAR.B',
+    ownerNumber: '256700000000',
+    ownerNumbers: ['256700000000'],
 
-    botVersion:
-        '1.0.0',
+    footer: '© POWERED BY NOX STAR.B',
 
-    ownerName:
-        'NOX STAR.B',
+    // PREFIX
+    prefix: '.',
+    multiPrefix: false,
+    prefixes: ['.'],
 
-    ownerNumber:
-        '256700000000',
+    // SESSION
+    sessionName: 'session',
+    sessionFolder: './sessions',
 
-    ownerNumbers: [
-        '256700000000'
-    ],
+    // CONNECTION SETTINGS
+    connectTimeout: 60000,
+    socketKeepAlive: 10000,
+    queryTimeout: 60000,
+    reconnectDelay: 5000,
 
-    ownerEmoji:
-        '👑',
+    // MODES
+    publicMode: true,
+    maintenance: false,
 
-    botEmoji:
-        '🤖',
-
-    footer:
-        '© POWERED BY NOX STAR.B',
-
-    //========================================
-    // PREFIX SETTINGS
-    //========================================
-
-    prefix:
-        '.',
-
-    multiPrefix:
-        false,
-
-    prefixes: [
-        '.'
-    ],
-
-    //========================================
-    // SESSION SETTINGS
-    //========================================
-
-    sessionName:
-        'session',
-
-    sessionFolder:
-        './sessions',
-
-    //========================================
-    // BOT MODES
-    //========================================
-
-    publicMode:
-        true,
-
-    maintenance:
-        false,
-
-    //========================================
     // AUTO FEATURES
-    //========================================
+    autoRead: false,
+    autoTyping: false,
+    autoRecording: false,
+    autoStatusView: false,
 
-    autoRead:
-        false,
+    autoSticker: false,
+    autoReply: false,
+    autoChatbot: false,
 
-    autoTyping:
-        true,
+    // GROUP FEATURES
+    welcome: false,
+    goodbye: false,
+    antiLink: false,
+    antiBadword: false,
+    antiDelete: true,
+    antiViewOnce: true,
+    antiSpam: false,
+    antiBot: false,
+    antiCall: true,
+    nsfw: false,
 
-    autoRecording:
-        false,
+    // SPAM
+    spamLimit: 5,
+    spamCooldown: 10,
+    enableCooldown: true,
 
-    autoStatusView:
-        true,
+    // LIMITS
+    dailyLimit: 20,
+    premiumLimit: 9999,
+    cooldown: 3,
 
-    autoSticker:
-        false,
-
-    autoReply:
-        false,
-
-    autoChatbot:
-        false,
-
-    //========================================
-    // GROUP DEFAULT SETTINGS
-    //========================================
-
-    welcome:
-        false,
-
-    goodbye:
-        false,
-
-    antiLink:
-        false,
-
-    antiBadword:
-        false,
-
-    antiDelete:
-        true,
-
-    antiViewOnce:
-        true,
-
-    antiSpam:
-        false,
-
-    antiBot:
-        false,
-
-    antiCall:
-        true,
-
-    nsfw:
-        false,
-
-    //========================================
-    // SPAM SETTINGS
-    //========================================
-
-    spamLimit:
-        5,
-
-    spamCooldown:
-        10,
-
-    enableCooldown:
-        true,
-
-    //========================================
-    // LIMIT SETTINGS
-    //========================================
-
-    dailyLimit:
-        20,
-
-    premiumLimit:
-        9999,
-
-    cooldown:
-        3,
-
-    //========================================
     // REACTIONS
-    //========================================
+    reactEmoji: '🔥',
+    successEmoji: '✅',
+    errorEmoji: '❌',
+    waitEmoji: '⏳',
 
-    reactEmoji:
-        '🔥',
+    // STICKERS
+    stickerPackname: 'NOX SPARROW BOT',
+    stickerAuthor: 'NOX STAR.B',
 
-    successEmoji:
-        '✅',
+    // MEDIA
+    botImage: './media/bot.jpg',
+    thumbnail: './media/ai.jpg',
 
-    errorEmoji:
-        '❌',
+    maxUploadSize: 100 * 1024 * 1024,
+    maxVideoDuration: 60,
 
-    waitEmoji:
-        '⏳',
+    ffmpegPath: 'ffmpeg',
 
-    //========================================
-    // STICKER SETTINGS
-    //========================================
+    // DATABASE
+    database: './database/database.json',
+    premiumDB: './database/premium.json',
+    bannedDB: './database/banned.json',
 
-    stickerPackname:
-        'NOX SPARROW BOT',
+    // TEMP
+    tempFolder: './temp',
+    logsFolder: './logs',
 
-    stickerAuthor:
-        'NOX STAR.B',
-
-    //========================================
-    // MEDIA SETTINGS
-    //========================================
-
-    botImage:
-        './media/bot.jpg',
-
-    thumbnail:
-        './media/ai.jpg',
-
-    maxUploadSize:
-        100 * 1024 * 1024,
-
-    maxVideoDuration:
-        60,
-
-    ffmpegPath:
-        'ffmpeg',
-
-    //========================================
     // API KEYS
-    //========================================
+    apiKey: process.env.API_KEY || '',
+    openaiKey: process.env.OPENAI_KEY || '',
+    geminiKey: process.env.GEMINI_KEY || '',
 
-    apiKey:
-        process.env.API_KEY || '',
-
-    openaiKey:
-        process.env.OPENAI_KEY || '',
-
-    geminiKey:
-        process.env.GEMINI_KEY || '',
-
-    //========================================
-    // API URLS
-    //========================================
-
-    APIs: {
-
-        neoxr:
-            'https://api.neoxr.eu',
-
-        lolhuman:
-            'https://api.lolhuman.xyz',
-
-        botcahx:
-            'https://api.botcahx.eu.org',
-
-        openai:
-            'https://api.openai.com',
-
-        gemini:
-            'https://generativelanguage.googleapis.com'
-    },
-
-    //========================================
-    // DATABASE SETTINGS
-    //========================================
-
-    database:
-        './database/database.json',
-
-    premiumDB:
-        './database/premium.json',
-
-    bannedDB:
-        './database/banned.json',
-
-    //========================================
-    // TEMP & LOGS
-    //========================================
-
-    tempFolder:
-        './temp',
-
-    logsFolder:
-        './logs',
-
-    //========================================
     // CHANNEL
-    //========================================
-
     channel:
         'https://whatsapp.com/channel/0029VbCnWMi2ZjCgC3ISe73b',
 
-    //========================================
     // TIMEZONE
-    //========================================
-
-    timezone:
-        'Africa/Kampala'
+    timezone: 'Africa/Kampala'
 }
