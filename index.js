@@ -1,5 +1,9 @@
 require('dotenv').config()
 
+// ========================================
+// IMPORTS
+// ========================================
+
 const express = require('express')
 const fs = require('fs')
 const path = require('path')
@@ -12,11 +16,11 @@ const {
     DisconnectReason
 } = require('@whiskeysockets/baileys')
 
-const app = express()
+// ========================================
+// APP
+// ========================================
 
-// ========================================
-// SETTINGS
-// ========================================
+const app = express()
 
 const PORT =
     process.env.PORT || 3000
@@ -25,7 +29,7 @@ const SESSION_PATH =
     './sessions'
 
 // ========================================
-// PUBLIC FOLDER
+// STATIC FILES
 // ========================================
 
 app.use(
@@ -63,10 +67,6 @@ app.get('/pair', async (req, res) => {
         let number =
             req.query.number
 
-        // ========================================
-        // VALIDATION
-        // ========================================
-
         if (!number) {
 
             return res.send(
@@ -79,10 +79,6 @@ app.get('/pair', async (req, res) => {
                 /[^0-9]/g,
                 ''
             )
-
-        // ========================================
-        // AUTO FIX NUMBER
-        // ========================================
 
         if (
             number.startsWith('0')
@@ -102,43 +98,25 @@ app.get('/pair', async (req, res) => {
             )
         }
 
-        // ========================================
-        // DELETE OLD SESSION
-        // ========================================
+        console.log(
+            'PAIR REQUEST:',
+            number
+        )
 
-        try {
-
-            if (
-                fs.existsSync(
-                    SESSION_PATH
-                )
-            ) {
-
-                fs.rmSync(
-                    SESSION_PATH,
-                    {
-                        recursive: true,
-                        force: true
-                    }
-                )
-
-                console.log(
-                    'OLD SESSION REMOVED'
-                )
-            }
-
-        } catch (err) {
-
-            console.log(
-                'SESSION DELETE ERROR'
+        if (
+            fs.existsSync(
+                SESSION_PATH
             )
+        ) {
 
-            console.log(err)
+            fs.rmSync(
+                SESSION_PATH,
+                {
+                    recursive: true,
+                    force: true
+                }
+            )
         }
-
-        // ========================================
-        // CREATE AUTH
-        // ========================================
 
         const {
             state,
@@ -147,10 +125,6 @@ app.get('/pair', async (req, res) => {
         await useMultiFileAuthState(
             SESSION_PATH
         )
-
-        // ========================================
-        // FETCH VERSION
-        // ========================================
 
         const {
             version
@@ -162,136 +136,40 @@ app.get('/pair', async (req, res) => {
             version
         )
 
-        // ========================================
-        // CREATE SOCKET
-        // ========================================
-
         const sock =
             makeWASocket({
 
-                version,
-
                 auth: state,
 
-                printQRInTerminal: false,
+                version,
 
                 logger: pino({
                     level: 'silent'
                 }),
 
                 browser: [
-
                     'NOX-SPARROW',
-
                     'Chrome',
-
                     '1.0.0'
                 ]
             })
-
-        // ========================================
-        // SAVE CREDS
-        // ========================================
 
         sock.ev.on(
             'creds.update',
             saveCreds
         )
 
-        let codeSent = false
+        const code =
+            await sock.requestPairingCode(
+                number
+            )
 
-        // ========================================
-        // CONNECTION UPDATE
-        // ========================================
-
-        sock.ev.on(
-            'connection.update',
-
-            async ({
-                connection,
-                lastDisconnect
-            }) => {
-
-                console.log(
-                    'CONNECTION:',
-                    connection
-                )
-
-                // ========================================
-                // WAIT FOR OPEN
-                // ========================================
-
-                if (
-                    connection === 'open' &&
-                    !codeSent
-                ) {
-
-                    try {
-
-                        codeSent = true
-
-                        console.log(
-                            'REQUESTING PAIR CODE FOR:',
-                            number
-                        )
-
-                        const code =
-                            await sock.requestPairingCode(
-                                number
-                            )
-
-                        console.log(
-                            'PAIR CODE:',
-                            code
-                        )
-
-                        return res.send(code)
-
-                    } catch (err) {
-
-                        console.log(
-                            'PAIR CODE ERROR'
-                        )
-
-                        console.log(err)
-
-                        return res.send(
-                            'FAILED'
-                        )
-                    }
-                }
-
-                // ========================================
-                // CONNECTION CLOSED
-                // ========================================
-
-                if (
-                    connection === 'close'
-                ) {
-
-                    const reason =
-                        lastDisconnect
-                        ?.error
-                        ?.output
-                        ?.statusCode
-
-                    console.log(
-                        'DISCONNECTED:',
-                        reason
-                    )
-
-                    if (
-                        reason !==
-                        DisconnectReason.loggedOut
-                    ) {
-
-                        console.log(
-                            'RECONNECTING...'
-                        )
-                    }
-                }
-            }
+        console.log(
+            'PAIR CODE:',
+            code
         )
+
+        return res.send(code)
 
     } catch (err) {
 
