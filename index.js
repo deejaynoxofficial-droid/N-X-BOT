@@ -1,5 +1,9 @@
 require('dotenv').config()
 
+// ========================================
+// IMPORTS
+// ========================================
+
 const express = require('express')
 const fs = require('fs')
 const path = require('path')
@@ -13,14 +17,19 @@ const {
     Browsers
 } = require('@whiskeysockets/baileys')
 
+// ========================================
+// APP INIT
+// ========================================
+
 const app = express()
 const PORT = process.env.PORT || 3000
 
 const SESSION_PATH = './sessions'
 
 // ========================================
-// STATIC FILES
+// STATIC FRONTEND
 // ========================================
+
 app.use(express.static(path.join(__dirname, 'public')))
 
 app.get('/', (req, res) => {
@@ -28,9 +37,12 @@ app.get('/', (req, res) => {
 })
 
 // ========================================
-// PAIR ROUTE (FIXED)
+// PAIR FUNCTION
 // ========================================
+
 app.get('/pair', async (req, res) => {
+
+    let replied = false
 
     try {
 
@@ -40,15 +52,19 @@ app.get('/pair', async (req, res) => {
             return res.status(400).send('ENTER NUMBER')
         }
 
-        number = number.replace(/[^0-9]/g, '')
+        number = String(number).replace(/[^0-9]/g, '')
 
-        if (number.length < 10) {
+        if (number.startsWith('0')) {
+            number = '256' + number.slice(1)
+        }
+
+        if (number.length < 11) {
             return res.status(400).send('INVALID NUMBER')
         }
 
         console.log('PAIR REQUEST:', number)
 
-        // DO NOT DELETE SESSION EVERY TIME (FIX)
+        // DO NOT delete session every time (causes timeout)
         if (!fs.existsSync(SESSION_PATH)) {
             fs.mkdirSync(SESSION_PATH, { recursive: true })
         }
@@ -61,22 +77,23 @@ app.get('/pair', async (req, res) => {
 
         const sock = makeWASocket({
 
-            auth: state,
             version,
+
+            auth: state,
 
             logger: pino({ level: 'silent' }),
 
             browser: Browsers.windows('Chrome'),
 
-            printQRInTerminal: false,
             markOnlineOnConnect: false
         })
 
         sock.ev.on('creds.update', saveCreds)
 
         // ========================================
-        // REAL CONNECTION WAIT (FIX)
+        // WAIT CONNECTION PROPERLY
         // ========================================
+
         await new Promise((resolve, reject) => {
 
             const timeout = setTimeout(() => {
@@ -89,12 +106,7 @@ app.get('/pair', async (req, res) => {
 
                 if (connection === 'open') {
                     clearTimeout(timeout)
-                    resolve(true)
-                }
-
-                if (connection === 'close') {
-                    clearTimeout(timeout)
-                    reject(new Error('CONNECTION CLOSED'))
+                    resolve()
                 }
             })
         })
@@ -102,29 +114,35 @@ app.get('/pair', async (req, res) => {
         // ========================================
         // REQUEST CODE
         // ========================================
+
         const code = await sock.requestPairingCode(number)
 
         console.log('PAIR CODE:', code)
 
-        return res.json({
-            status: true,
-            code
-        })
+        replied = true
+        return res.send(code)
 
     } catch (err) {
 
         console.error('PAIR ERROR:', err)
 
-        return res.status(500).json({
-            status: false,
-            message: err.message || 'PAIR FAILED'
-        })
+        if (!replied) {
+            return res.status(500).send('PAIRING FAILED')
+        }
     }
 })
 
 // ========================================
 // START SERVER
 // ========================================
+
 app.listen(PORT, () => {
-    console.log(`SERVER RUNNING ON ${PORT}`)
+
+    console.log(`
+╭━━━━━━━━━━━━━━━━━━━━━━⬣
+┃ 🤖 BOT SERVER ONLINE
+┃ 🌐 PORT: ${PORT}
+┃ 🚀 READY
+╰━━━━━━━━━━━━━━━━━━━━━━⬣
+`)
 })
