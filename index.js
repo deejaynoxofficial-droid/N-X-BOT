@@ -171,19 +171,18 @@ app.get('/pair', async (req, res) => {
 
         return res.send(code)
 
-    } catch (err) {
+    catch (err) {
 
-        console.log(
-            'PAIR ROUTE ERROR'
-        )
+    console.log(
+        'PAIR ROUTE ERROR'
+    )
 
-        console.log(err)
+    console.error(err)
 
-        return res.send(
-            'FAILED'
-        )
+    return res.status(500).send(
+        String(err?.message || err)
+    )
     }
-})
 
 // ========================================
 // START SERVER
