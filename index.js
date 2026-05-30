@@ -54,17 +54,16 @@ app.get('/pair', async (req, res) => {
 
         number = String(number).replace(/[^0-9]/g, '')
 
-        if (number.startsWith('0')) {
-            number = '256' + number.slice(1)
-        }
-
         if (number.length < 11) {
             return res.status(400).send('INVALID NUMBER')
         }
 
         console.log('PAIR REQUEST:', number)
 
-        // DO NOT delete session every time (causes timeout)
+        // ========================================
+        // SESSION SAFE MODE (DO NOT DELETE)
+        // ========================================
+
         if (!fs.existsSync(SESSION_PATH)) {
             fs.mkdirSync(SESSION_PATH, { recursive: true })
         }
@@ -78,7 +77,6 @@ app.get('/pair', async (req, res) => {
         const sock = makeWASocket({
 
             version,
-
             auth: state,
 
             logger: pino({ level: 'silent' }),
@@ -91,7 +89,7 @@ app.get('/pair', async (req, res) => {
         sock.ev.on('creds.update', saveCreds)
 
         // ========================================
-        // WAIT CONNECTION PROPERLY
+        // WAIT FOR ANY CONNECTION STATE (FIX)
         // ========================================
 
         await new Promise((resolve, reject) => {
@@ -102,35 +100,54 @@ app.get('/pair', async (req, res) => {
 
             sock.ev.on('connection.update', (update) => {
 
-                const { connection } = update
+                const { connection, lastDisconnect } = update
 
                 if (connection === 'open') {
                     clearTimeout(timeout)
-                    resolve()
+                    resolve(true)
+                }
+
+                if (connection === 'close') {
+
+                    const reason =
+                        lastDisconnect?.error?.output?.statusCode
+
+                    console.log('CONNECTION CLOSED:', reason)
+
+                    clearTimeout(timeout)
+                    reject(new Error('CONNECTION CLOSED'))
                 }
             })
         })
 
         // ========================================
-        // REQUEST CODE
+        // NOW REQUEST CODE (SAFE)
         // ========================================
 
-        const code = await sock.requestPairingCode(number)
-
-        console.log('PAIR CODE:', code)
+        const code =
+            await sock.requestPairingCode(number)
 
         replied = true
-        return res.send(code)
+
+        return res.json({
+            status: true,
+            code
+        })
 
     } catch (err) {
 
         console.error('PAIR ERROR:', err)
 
         if (!replied) {
-            return res.status(500).send('PAIRING FAILED')
+
+            return res.status(500).json({
+                status: false,
+                message: err.message || 'SERVER ERROR'
+            })
         }
     }
 })
+
 
 // ========================================
 // START SERVER
