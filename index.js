@@ -267,5 +267,30 @@ app.listen(PORT, () => {
 ╰━━━━━━━━━━━━━━━━━━━━━━⬣
 `)
 
-    loadAllSessions()
-})
+    function loadAllSessions() {
+
+    const sessions = fs.readdirSync(SESSIONS_DIR)
+
+    let loaded = 0
+
+    for (const session of sessions) {
+
+        const sessionPath = path.join(SESSIONS_DIR, session)
+
+        try {
+
+            if (!fs.statSync(sessionPath).isDirectory()) {
+                console.log(`⚠️ Skipping invalid session: ${session}`)
+                continue
+            }
+
+            startBot(session)
+            loaded++
+
+        } catch (err) {
+            console.log(`⚠️ Failed loading ${session}:`, err.message)
+        }
+    }
+
+    console.log(`📦 Loaded ${loaded} session(s)`)
+    }
