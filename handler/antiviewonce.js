@@ -1,314 +1,154 @@
-module.exports = {
-    name: 'autoviewonce',
+const {
+    downloadMediaMessage
+} = require('@whiskeysockets/baileys')
 
-    async execute(sock, msg, args) {
+const settings =
+    require('../settings')
 
-        const from =
-            msg?.key?.remoteJid || null
+module.exports = async (
+    sock,
+    messages
+) => {
 
-        try {
+    try {
 
-            if (
-                !sock ||
-                typeof sock !== 'object'
-            ) {
-                return
-            }
+        if (
+            !global.autoViewOnceEnabled
+        ) {
+            return
+        }
 
-            if (
-                typeof sock.sendMessage !==
-                    'function'
-            ) {
-                return
-            }
+        const msg =
+            messages?.[0]
 
-            if (
-                typeof global !==
-                    'object' ||
-                global === null
-            ) {
-                return
-            }
+        if (
+            !msg ||
+            !msg.message
+        ) {
+            return
+        }
 
-            if (
-                !from ||
-                typeof from !==
-                    'string'
-            ) {
-                return
-            }
+        const viewOnce =
 
-            const ownerNumbers = [
-                '256700000000@s.whatsapp.net'
-            ]
+            msg.message?.viewOnceMessage ||
 
-            const sender =
-                msg?.key?.participant ||
-                msg?.participant ||
-                msg?.key?.remoteJid ||
-                null
+            msg.message?.viewOnceMessageV2 ||
 
-            if (
-                !sender ||
-                typeof sender !==
-                    'string'
-            ) {
+            msg.message?.viewOnceMessageV2Extension
 
-                return await sock.sendMessage(
-                    from,
-                    {
-                        text:
-`╭━━〔 ❌ ERROR 〕━━⬣
+        if (!viewOnce) {
+            return
+        }
+
+        const owner =
+            `${settings.ownerNumber}@s.whatsapp.net`
+
+        const mode =
+            global.autoViewOnceMode ||
+            'private'
+
+        const target =
+            mode === 'chat'
+                ? msg.key.remoteJid
+                : owner
+
+        const sender =
+            msg.key.participant ||
+            msg.key.remoteJid
+
+        const mediaMessage =
+            viewOnce.message
+
+        if (!mediaMessage) {
+            return
+        }
+
+        await sock.sendMessage(
+            target,
+            {
+                text:
+`╭━━〔 👁️ VIEW ONCE DETECTED 〕━━⬣
 ┃
-┃ Unable to detect
-┃ sender.
+┃ Sender:
+┃ ${sender}
 ┃
-╰━━━━━━━━━━━━━━━━━━⬣`
-                    }
-                )
-            }
-
-            const normalizedSender =
-                sender.includes(':')
-                    ? sender.split(':')[0] +
-                      '@s.whatsapp.net'
-                    : sender
-
-            const isOwner =
-                ownerNumbers.includes(
-                    normalizedSender
-                )
-
-            if (!isOwner) {
-
-                return await sock.sendMessage(
-                    from,
-                    {
-                        text:
-`╭━━〔 ❌ ACCESS DENIED 〕━━⬣
-┃
-┃ Only the bot owner
-┃ can use this command.
+┃ Capturing media...
 ┃
 ╰━━━━━━━━━━━━━━━━━━⬣`
-                    }
-                )
             }
+        )
 
-            if (
-                typeof global.autoViewOnceEnabled !==
-                'boolean'
-            ) {
-
-                global.autoViewOnceEnabled =
-                    false
-            }
-
-            if (
-                typeof global.autoViewOnceMode !==
-                'string'
-            ) {
-
-                global.autoViewOnceMode =
-                    'private'
-            }
-
-            if (
-                !Array.isArray(args)
-            ) {
-                args = []
-            }
-
-            const option =
-                args[0]
-                    ?.trim()
-                    ?.toLowerCase() || ''
-
-            const mode =
-                args[1]
-                    ?.trim()
-                    ?.toLowerCase() || ''
-
-            if (!option) {
-
-                const status =
-                    global.autoViewOnceEnabled
-                        ? 'ON'
-                        : 'OFF'
-
-                const currentMode =
-                    global.autoViewOnceMode ||
-                    'private'
-
-                return await sock.sendMessage(
-                    from,
-                    {
-                        text:
-`╭━━〔 👁️ AUTO VIEW-ONCE 〕━━⬣
-┃
-┃ Status: ${status}
-┃ Mode: ${currentMode.toUpperCase()}
-┃
-┃ Usage:
-┃ .autoviewonce on private
-┃ .autoviewonce on chat
-┃ .autoviewonce off
-┃
-┃ PRIVATE → Sends media
-┃ to owner inbox.
-┃
-┃ CHAT → Sends media
-┃ to current chat.
-┃
-╰━━━━━━━━━━━━━━━━━━⬣`
-                    }
-                )
-            }
-
-            const validOptions = [
-                'on',
-                'off'
-            ]
-
-            if (
-                !validOptions.includes(
-                    option
-                )
-            ) {
-
-                return await sock.sendMessage(
-                    from,
-                    {
-                        text:
-`╭━━〔 ❌ INVALID OPTION 〕━━⬣
-┃
-┃ Use:
-┃ on
-┃ off
-┃
-╰━━━━━━━━━━━━━━━━━━⬣`
-                    }
-                )
-            }
-
-            if (option === 'on') {
-
-                const validModes = [
-                    'private',
-                    'chat'
-                ]
-
-                if (
-                    !validModes.includes(
-                        mode
-                    )
-                ) {
-
-                    return await sock.sendMessage(
-                        from,
-                        {
-                            text:
-`╭━━〔 ❌ INVALID MODE 〕━━⬣
-┃
-┃ Available Modes:
-┃ private
-┃ chat
-┃
-╰━━━━━━━━━━━━━━━━━━⬣`
-                        }
-                    )
+        const buffer =
+            await downloadMediaMessage(
+                msg,
+                'buffer',
+                {},
+                {
+                    logger: undefined,
+                    reuploadRequest:
+                        sock.updateMediaMessage
                 }
-
-                global.autoViewOnceEnabled =
-                    true
-
-                global.autoViewOnceMode =
-                    mode
-
-                return await sock.sendMessage(
-                    from,
-                    {
-                        text:
-`╭━━〔 ✅ AUTO VIEW-ONCE 〕━━⬣
-┃
-┃ Status: ENABLED
-┃ Mode: ${mode.toUpperCase()}
-┃
-┃ View-once media will
-┃ now be captured
-┃ automatically.
-┃
-╰━━━━━━━━━━━━━━━━━━⬣`
-                    }
-                )
-            }
-
-            if (option === 'off') {
-
-                if (
-                    global.autoViewOnceEnabled ===
-                    false
-                ) {
-
-                    return await sock.sendMessage(
-                        from,
-                        {
-                            text:
-`╭━━〔 ⚠️ AUTO VIEW-ONCE 〕━━⬣
-┃
-┃ Auto view-once is
-┃ already disabled.
-┃
-╰━━━━━━━━━━━━━━━━━━⬣`
-                        }
-                    )
-                }
-
-                global.autoViewOnceEnabled =
-                    false
-
-                global.autoViewOnceMode =
-                    'private'
-
-                return await sock.sendMessage(
-                    from,
-                    {
-                        text:
-`╭━━〔 ✅ AUTO VIEW-ONCE 〕━━⬣
-┃
-┃ Status: DISABLED
-┃
-┃ View-once media will
-┃ no longer be captured.
-┃
-╰━━━━━━━━━━━━━━━━━━⬣`
-                    }
-                )
-            }
-
-        } catch (error) {
-
-            console.log(
-                'AutoViewOnce Command Error:',
-                error
             )
 
-            try {
-
-                await sock.sendMessage(
-                    from,
-                    {
-                        text:
-`╭━━〔 ❌ ERROR 〕━━⬣
-┃
-┃ Failed to execute
-┃ autoviewonce command.
-┃
-╰━━━━━━━━━━━━━━━━━━⬣`
-                    }
-                )
-
-            } catch {}
+        if (!buffer) {
+            return
         }
+
+        if (
+            mediaMessage.imageMessage
+        ) {
+
+            await sock.sendMessage(
+                target,
+                {
+                    image: buffer,
+                    caption:
+                        mediaMessage
+                            .imageMessage
+                            ?.caption ||
+                        'Captured View Once Image'
+                }
+            )
+        }
+
+        else if (
+            mediaMessage.videoMessage
+        ) {
+
+            await sock.sendMessage(
+                target,
+                {
+                    video: buffer,
+                    caption:
+                        mediaMessage
+                            .videoMessage
+                            ?.caption ||
+                        'Captured View Once Video'
+                }
+            )
+        }
+
+        else if (
+            mediaMessage.audioMessage
+        ) {
+
+            await sock.sendMessage(
+                target,
+                {
+                    audio: buffer,
+                    mimetype:
+                        'audio/mp4',
+                    ptt: false
+                }
+            )
+        }
+
+    } catch (err) {
+
+        console.log(
+            'AUTO VIEWONCE ERROR:'
+        )
+
+        console.log(err)
     }
 }
