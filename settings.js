@@ -1,33 +1,34 @@
-require('dotenv').config()
+require("dotenv").config();
 
 module.exports = {
-
     // BOT INFO
-    botName: '𝙽𝙾𝚇 𝚂𝙿𝙰𝚁𝚁𝙾𝚆 𝙱𝙾𝚃',
-    botVersion: '1.0.0',
+    botName: process.env.BOT_NAME || "𝙽𝙾𝚇 𝚂𝙿𝙰𝚁𝚁𝙾𝚆 𝙱𝙾𝚃",
+    botVersion: "1.0.0",
 
-    ownerName: 'NOX STAR.B',
-    ownerNumber: '256700000000',
-    ownerNumbers: ['256700000000'],
+    ownerName: process.env.OWNER_NAME || "NOX STAR.B",
+    ownerNumber: process.env.OWNER_NUMBER || "256700000000",
+    ownerNumbers: [
+        process.env.OWNER_NUMBER || "256700000000"
+    ],
 
-    footer: '© POWERED BY NOX STAR.B',
+    footer: "© POWERED BY NOX STAR.B",
 
     // PREFIX
-    prefix: '.',
+    prefix: process.env.PREFIX || ".",
     multiPrefix: false,
-    prefixes: ['.'],
+    prefixes: ["."],
 
     // SESSION
-    sessionName: 'session',
-    sessionFolder: './sessions',
+    sessionName: "session",
+    sessionFolder: "./sessions",
 
-    // CONNECTION SETTINGS
+    // CONNECTION
     connectTimeout: 60000,
     socketKeepAlive: 10000,
     queryTimeout: 60000,
     reconnectDelay: 5000,
 
-    // MODES
+    // MODE
     publicMode: true,
     maintenance: false,
 
@@ -36,12 +37,11 @@ module.exports = {
     autoTyping: false,
     autoRecording: false,
     autoStatusView: false,
-
     autoSticker: false,
     autoReply: false,
     autoChatbot: false,
 
-    // GROUP FEATURES
+    // GROUP
     welcome: false,
     goodbye: false,
     antiLink: false,
@@ -53,53 +53,46 @@ module.exports = {
     antiCall: true,
     nsfw: false,
 
-    // SPAM
+    // LIMITS
     spamLimit: 5,
     spamCooldown: 10,
     enableCooldown: true,
-
-    // LIMITS
     dailyLimit: 20,
     premiumLimit: 9999,
     cooldown: 3,
 
-    // REACTIONS
-    reactEmoji: '🔥',
-    successEmoji: '✅',
-    errorEmoji: '❌',
-    waitEmoji: '⏳',
+    // EMOJIS
+    reactEmoji: "🔥",
+    successEmoji: "✅",
+    errorEmoji: "❌",
+    waitEmoji: "⏳",
 
     // STICKERS
-    stickerPackname: 'NOX SPARROW BOT',
-    stickerAuthor: 'NOX STAR.B',
+    stickerPackname: "NOX SPARROW BOT",
+    stickerAuthor: "NOX STAR.B",
+
+    // PATHS
+    botImage: "./media/bot.jpg",
+    thumbnail: "./media/ai.jpg",
+    database: "./database/database.json",
+    premiumDB: "./database/premium.json",
+    bannedDB: "./database/banned.json",
+    tempFolder: "./temp",
+    logsFolder: "./logs",
 
     // MEDIA
-    botImage: './media/bot.jpg',
-    thumbnail: './media/ai.jpg',
-
     maxUploadSize: 100 * 1024 * 1024,
     maxVideoDuration: 60,
-
-    ffmpegPath: 'ffmpeg',
-
-    // DATABASE
-    database: './database/database.json',
-    premiumDB: './database/premium.json',
-    bannedDB: './database/banned.json',
-
-    // TEMP
-    tempFolder: './temp',
-    logsFolder: './logs',
+    ffmpegPath: "ffmpeg",
 
     // API KEYS
-    apiKey: process.env.API_KEY || '',
-    openaiKey: process.env.OPENAI_KEY || '',
-    geminiKey: process.env.GEMINI_KEY || '',
+    apiKey: process.env.API_KEY || "",
+    openaiKey: process.env.OPENAI_KEY || "",
+    geminiKey: process.env.GEMINI_KEY || "",
 
     // CHANNEL
-    channel:
-        'https://whatsapp.com/channel/0029VbCnWMi2ZjCgC3ISe73b',
+    channel: "https://whatsapp.com/channel/0029VbCnWMi2ZjCgC3ISe73b",
 
     // TIMEZONE
-    timezone: 'Africa/Kampala'
-}
+    timezone: "Africa/Kampala"
+};
