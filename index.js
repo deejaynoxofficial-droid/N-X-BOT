@@ -124,15 +124,12 @@ app.get('/pair', async (req, res) => {
         // NOW REQUEST CODE (SAFE)
         // ========================================
 
-        const code =
-            await sock.requestPairingCode(number)
+        const code = await sock.requestPairingCode(number)
 
-        replied = true
-
-        return res.json({
-            status: true,
-            code
-        })
+return res.json({
+    status: true,
+    code
+})
 
     } catch (err) {
 
