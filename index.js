@@ -6,7 +6,7 @@ const path = require("path");
 
 // Import your Baileys socket manager
 // Example: const { createSocket } = require("./socket");
-const { createSocket } = require("./socket");
+const { createSocket } = require("@whiskeysockets/baileys")
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
