@@ -3,7 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-// Make sure to install baileys: npm install @whiskeysockets/baileys
+const pino = require("pino");
 const { default: makeWASocket, useMultiFileAuthState, delay } = require("@whiskeysockets/baileys");
 
 process.on("uncaughtException", (err) => {
@@ -39,46 +39,48 @@ app.get("/health", (req, res) => {
     });
 });
 
-// ==========================================
-// 📱 PAIRING CODE ROUTE
-// ==========================================
 app.get("/pair", async (req, res) => {
     const phoneNumber = req.query.number;
 
     if (!phoneNumber) {
-        return res.status(400).json({ error: "Please provide a phone number. Example: /pair?number=2547XXXXXXXX" });
+        return res.status(400).json({
+            error: "Please provide a phone number. Example: /pair?number=15551234567"
+        });
     }
 
-    // Clean up non-numeric characters from the phone number
     const sanitizedNumber = phoneNumber.replace(/[^0-9]/g, "");
 
     try {
-        const { state, saveCreds } = await useMultiFileAuthState(path.join(SESSION_PATH, sanitizedNumber));
+        const numberSessionFolder = path.join(SESSION_PATH, sanitizedNumber);
+        const { state, saveCreds } = await useMultiFileAuthState(numberSessionFolder);
 
         const socket = makeWASocket({
             auth: state,
             printQRInTerminal: false,
-            logger: require("pino")({ level: "silent" })
+            logger: pino({ level: "silent" })
         });
 
         socket.ev.on("creds.update", saveCreds);
 
-        // Check if the number is not already registered on this session
         if (!socket.authState.creds.registered) {
-            await delay(1500); // Small delay to allow socket initialization
-            const code = await socket.requestPairingCode(sanitizedNumber);
-            
+            await delay(1500);
+            const pairingCode = await socket.requestPairingCode(sanitizedNumber);
+
             return res.status(200).json({
                 status: "success",
                 number: sanitizedNumber,
-                pairingCode: code
+                pairingCode: pairingCode
             });
         } else {
-            return res.status(400).json({ error: "This phone number is already registered!" });
+            return res.status(400).json({
+                error: "This phone number is already registered!"
+            });
         }
     } catch (error) {
         console.error("Pairing Error:", error);
-        return res.status(500).json({ error: "Failed to generate pairing code. Please try again." });
+        return res.status(500).json({
+            error: "Failed to generate pairing code. Please try again."
+        });
     }
 });
 
