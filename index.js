@@ -40,45 +40,55 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/pair", async (req, res) => {
-    const phoneNumber = req.query.number;
+    // Support various query parameter names used by frontend UI templates
+    let phoneNumber = req.query.number || req.query.phone || req.query.code;
 
     if (!phoneNumber) {
         return res.status(400).json({
-            error: "Please provide a phone number. Example: /pair?number=15551234567"
+            status: false,
+            error: "Please provide a valid phone number."
         });
     }
 
+    // Keep digits only
     const sanitizedNumber = phoneNumber.replace(/[^0-9]/g, "");
 
     try {
+        // Unique dynamic session path per phone number
         const numberSessionFolder = path.join(SESSION_PATH, sanitizedNumber);
         const { state, saveCreds } = await useMultiFileAuthState(numberSessionFolder);
 
         const socket = makeWASocket({
             auth: state,
             printQRInTerminal: false,
-            logger: pino({ level: "silent" })
+            logger: pino({ level: "silent" }),
+            browser: ["Ubuntu", "Chrome", "20.0.04"] // Helps avoid connection drops on cloud servers
         });
 
         socket.ev.on("creds.update", saveCreds);
 
         if (!socket.authState.creds.registered) {
-            await delay(1500);
-            const pairingCode = await socket.requestPairingCode(sanitizedNumber);
+            await delay(3000); // 3-second delay ensures full socket handshake
+
+            const rawCode = await socket.requestPairingCode(sanitizedNumber);
+            const formattedCode = rawCode?.match(/.{1,4}/g)?.join("-") || rawCode;
 
             return res.status(200).json({
-                status: "success",
-                number: sanitizedNumber,
-                pairingCode: pairingCode
+                status: true,
+                code: formattedCode,
+                pairingCode: formattedCode,
+                number: sanitizedNumber
             });
         } else {
             return res.status(400).json({
-                error: "This phone number is already registered!"
+                status: false,
+                error: "This number is already registered!"
             });
         }
     } catch (error) {
         console.error("Pairing Error:", error);
         return res.status(500).json({
+            status: false,
             error: "Failed to generate pairing code. Please try again."
         });
     }
