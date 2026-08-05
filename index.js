@@ -23,6 +23,9 @@ if (!fs.existsSync(SESSION_PATH)) {
     fs.mkdirSync(SESSION_PATH, { recursive: true });
 }
 
+// Map to hold active socket connections in memory
+const activeSockets = new Map();
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
@@ -40,7 +43,6 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/pair", async (req, res) => {
-    // Support various query parameter names used by frontend UI templates
     let phoneNumber = req.query.number || req.query.phone || req.query.code;
 
     if (!phoneNumber) {
@@ -50,14 +52,20 @@ app.get("/pair", async (req, res) => {
         });
     }
 
-    // Keep digits only
     const sanitizedNumber = phoneNumber.replace(/[^0-9]/g, "");
 
     try {
-        // Unique dynamic session path per phone number
         const numberSessionFolder = path.join(SESSION_PATH, sanitizedNumber);
 
-        // Clear incomplete/corrupted session folder if not fully registered yet
+        // If an active socket already exists for this number, close it first
+        if (activeSockets.has(sanitizedNumber)) {
+            try {
+                activeSockets.get(sanitizedNumber).end(undefined);
+            } catch (e) {}
+            activeSockets.delete(sanitizedNumber);
+        }
+
+        // Clean up partial session files if not registered
         if (fs.existsSync(numberSessionFolder)) {
             const credsPath = path.join(numberSessionFolder, "creds.json");
             if (!fs.existsSync(credsPath)) {
@@ -71,26 +79,30 @@ app.get("/pair", async (req, res) => {
             auth: state,
             printQRInTerminal: false,
             logger: pino({ level: "silent" }),
-            browser: ["Ubuntu", "Chrome", "20.0.04"], // Helps avoid connection drops on cloud servers
+            browser: ["Ubuntu", "Chrome", "20.0.04"],
             connectTimeoutMs: 60000,
             defaultQueryTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
-            markOnlineOnConnect: false
+            markOnlineOnConnect: true
         });
+
+        // Store active socket in global memory map to prevent garbage collection
+        activeSockets.set(sanitizedNumber, socket);
 
         socket.ev.on("creds.update", saveCreds);
 
         socket.ev.on("connection.update", async (update) => {
-            const { connection } = update;
+            const { connection, lastDisconnect } = update;
             if (connection === "open") {
                 console.log(`✅ Connection linked successfully for: ${sanitizedNumber}`);
             } else if (connection === "close") {
                 console.log(`ℹ️ Socket closed for: ${sanitizedNumber}`);
+                activeSockets.delete(sanitizedNumber);
             }
         });
 
         if (!socket.authState.creds.registered) {
-            await delay(3000); // 3-second delay ensures full socket handshake
+            await delay(3000); // Allow socket connection to establish fully
 
             const rawCode = await socket.requestPairingCode(sanitizedNumber);
             const formattedCode = rawCode?.match(/.{1,4}/g)?.join("-") || rawCode;
