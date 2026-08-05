@@ -56,16 +56,38 @@ app.get("/pair", async (req, res) => {
     try {
         // Unique dynamic session path per phone number
         const numberSessionFolder = path.join(SESSION_PATH, sanitizedNumber);
+
+        // Clear incomplete/corrupted session folder if not fully registered yet
+        if (fs.existsSync(numberSessionFolder)) {
+            const credsPath = path.join(numberSessionFolder, "creds.json");
+            if (!fs.existsSync(credsPath)) {
+                fs.rmSync(numberSessionFolder, { recursive: true, force: true });
+            }
+        }
+
         const { state, saveCreds } = await useMultiFileAuthState(numberSessionFolder);
 
         const socket = makeWASocket({
             auth: state,
             printQRInTerminal: false,
             logger: pino({ level: "silent" }),
-            browser: ["Ubuntu", "Chrome", "20.0.04"] // Helps avoid connection drops on cloud servers
+            browser: ["Ubuntu", "Chrome", "20.0.04"], // Helps avoid connection drops on cloud servers
+            connectTimeoutMs: 60000,
+            defaultQueryTimeoutMs: 60000,
+            keepAliveIntervalMs: 10000,
+            markOnlineOnConnect: false
         });
 
         socket.ev.on("creds.update", saveCreds);
+
+        socket.ev.on("connection.update", async (update) => {
+            const { connection } = update;
+            if (connection === "open") {
+                console.log(`✅ Connection linked successfully for: ${sanitizedNumber}`);
+            } else if (connection === "close") {
+                console.log(`ℹ️ Socket closed for: ${sanitizedNumber}`);
+            }
+        });
 
         if (!socket.authState.creds.registered) {
             await delay(3000); // 3-second delay ensures full socket handshake
