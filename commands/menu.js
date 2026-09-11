@@ -413,201 +413,102 @@ ${settings.footer || ''}
     ) {
 
         try {
+            if (!sock || !msg?.message) return false
 
-            if (
-                !sock ||
-                !msg
-            ) {
-                return
+            const from = msg.key?.remoteJid
+            if (!from || from === 'status@broadcast') return false
+
+            const rawSender = msg.key?.participant || from || ''
+            const senderNumber = rawSender.split(':')[0]
+            const sender = senderNumber.includes('@')
+                ? senderNumber
+                : senderNumber + '@s.whatsapp.net'
+
+            const replyData = global.menuReplies?.[sender]
+            if (!replyData) return false
+
+            // Accept BOTH ways:
+            // 1. User replies/quotes the menu message with 1-7.
+            // 2. User simply sends 1-7 after opening the menu.
+            // This keeps the menu useful on WhatsApp clients where
+            // replying to an image message is inconvenient.
+            const message = msg.message || {}
+            const wrappers = [
+                message,
+                message.ephemeralMessage?.message,
+                message.viewOnceMessage?.message,
+                message.viewOnceMessageV2?.message
+            ].filter(Boolean)
+
+            let body = ''
+            let quotedId = null
+
+            for (const current of wrappers) {
+                body =
+                    current.conversation ||
+                    current.extendedTextMessage?.text ||
+                    current.imageMessage?.caption ||
+                    current.videoMessage?.caption ||
+                    current.buttonsResponseMessage?.selectedButtonId ||
+                    current.listResponseMessage?.singleSelectReply?.selectedRowId ||
+                    current.templateButtonReplyMessage?.selectedId ||
+                    ''
+
+                const contextInfo =
+                    current.extendedTextMessage?.contextInfo ||
+                    current.imageMessage?.contextInfo ||
+                    current.videoMessage?.contextInfo ||
+                    current.buttonsResponseMessage?.contextInfo ||
+                    current.listResponseMessage?.contextInfo ||
+                    current.templateButtonReplyMessage?.contextInfo
+
+                quotedId = contextInfo?.stanzaId || null
+
+                if (body) break
             }
 
-            const from =
-                msg.key?.remoteJid
+            body = String(body || '').trim()
+            if (!body) return false
 
-            if (!from) {
-                return
+            // If the user quoted another message, only accept it when it is
+            // the menu message we sent. Direct 1-7 replies are also accepted.
+            if (quotedId && String(quotedId).trim() !== String(replyData.key).trim()) {
+                return false
             }
 
-            const rawSender = (
-
-                msg.key
-                    ?.participant ||
-
-                from ||
-
-                ''
-
-            )
-
-            const sender =
-                rawSender.includes(
-                    '@s.whatsapp.net'
-                )
-                    ? rawSender.split(':')[0]
-                    : rawSender.split(':')[0] +
-                      '@s.whatsapp.net'
-
-            const replyData =
-                global.menuReplies[
-                    sender
-                ]
-
-            if (
-                !replyData
-            ) {
-                return
-            }
-
-            // ========================================
-            // SAFE QUOTED CHECK
-            // ========================================
-
-            const quoted =
-
-                msg.message
-                    ?.extendedTextMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
-
-                msg.message
-                    ?.imageMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
-
-                msg.message
-                    ?.videoMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
-
-                msg.message
-                    ?.buttonsResponseMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
-
-                msg.message
-                    ?.listResponseMessage
-                    ?.contextInfo
-                    ?.stanzaId ||
-
-                null
-
-            if (!quoted) {
-                return
-            }
-
-            if (
-                String(quoted).trim() !==
-                String(replyData.key).trim()
-            ) {
-                return
-            }
-
-            const body =
-                String(
-                    getBody(msg) || ''
-                ).trim()
-
-            if (!body) {
-                return
-            }
-
-            const prefix =
-                replyData.prefix
-
-            const menus = {
-
-                '1': `
-╭━━━〔 ⚙️ MAIN MENU 〕━━━⬣
-┃ ${prefix}menu
-┃ ${prefix}ping
-┃ ${prefix}alive
-┃ ${prefix}runtime
-┃ ${prefix}uptime
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '2': `
-╭━━━〔 👤 OWNER MENU 〕━━━⬣
-┃ ${prefix}owner
-┃ ${prefix}repo
-┃ ${prefix}setname
-┃ ${prefix}setbio
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '3': `
-╭━━━〔 👥 GROUP MENU 〕━━━⬣
-┃ ${prefix}tagall
-┃ ${prefix}kick
-┃ ${prefix}promote
-┃ ${prefix}demote
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '4': `
-╭━━━〔 🔎 SEARCH MENU 〕━━━⬣
-┃ ${prefix}weather
-┃ ${prefix}news
-┃ ${prefix}movie
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '5': `
-╭━━━〔 📥 DOWNLOAD MENU 〕━━━⬣
-┃ ${prefix}play
-┃ ${prefix}ytmp3
-┃ ${prefix}ytmp4
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '6': `
-╭━━━〔 🛠️ TOOLS MENU 〕━━━⬣
-┃ ${prefix}sticker
-┃ ${prefix}tourl
-┃ ${prefix}qr
-╰━━━━━━━━━━━━━━━━━━⬣
-`,
-
-                '7': `
-╭━━━〔 🎭 FUN MENU 〕━━━⬣
-┃ ${prefix}joke
-┃ ${prefix}truth
-┃ ${prefix}dare
-╰━━━━━━━━━━━━━━━━━━⬣
-`
-            }
-
-            const response =
-                menus[body]
-
-            if (!response) {
-                return
-            }
+            const response = menusForPrefix(replyData.prefix, body)
+            if (!response) return false
 
             await sock.sendMessage(
-
                 from,
-
-                {
-                    text: response
-                },
-
-                {
-                    quoted: msg
-                }
+                { text: response },
+                { quoted: msg }
             )
 
-            console.log(
-                `✅ MENU REPLY ${body}`
-            )
+            console.log(`✅ MENU REPLY ${body} TO ${sender}`)
+
+            // Consume the menu selection so random later 1-7 messages
+            // don't keep triggering the same menu forever.
+            delete global.menuReplies[sender]
+
+            return true
 
         } catch (err) {
-
-            console.log(
-                '❌ MENU REPLY ERROR:'
-            )
-
-            console.log(err)
+            console.log('❌ MENU REPLY ERROR:', err?.message || err)
+            return false
         }
     }
+}
+
+function menusForPrefix(prefix, body) {
+    const menus = {
+        '1': `╭━━━〔 ⚙️ MAIN MENU 〕━━━⬣\n┃ ${prefix}menu\n┃ ${prefix}ping\n┃ ${prefix}alive\n┃ ${prefix}runtime\n┃ ${prefix}uptime\n╰━━━━━━━━━━━━━━━━━━⬣`,
+        '2': `╭━━━〔 👤 OWNER MENU 〕━━━⬣\n┃ ${prefix}owner\n┃ ${prefix}repo\n┃ ${prefix}setname\n┃ ${prefix}setbio\n╰━━━━━━━━━━━━━━━━━━⬣`,
+        '3': `╭━━━〔 👥 GROUP MENU 〕━━━⬣\n┃ ${prefix}tagall\n┃ ${prefix}kick\n┃ ${prefix}promote\n┃ ${prefix}demote\n╰━━━━━━━━━━━━━━━━━━⬣`,
+        '4': `╭━━━〔 🔎 SEARCH MENU 〕━━━⬣\n┃ ${prefix}weather\n┃ ${prefix}news\n┃ ${prefix}movie\n╰━━━━━━━━━━━━━━━━━━⬣`,
+        '5': `╭━━━〔 📥 DOWNLOAD MENU 〕━━━⬣\n┃ ${prefix}play\n┃ ${prefix}ytmp3\n┃ ${prefix}ytmp4\n╰━━━━━━━━━━━━━━━━━━⬣`,
+        '6': `╭━━━〔 🛠️ TOOLS MENU 〕━━━⬣\n┃ ${prefix}sticker\n┃ ${prefix}tourl\n┃ ${prefix}qr\n╰━━━━━━━━━━━━━━━━━━⬣`,
+        '7': `╭━━━〔 🎭 FUN MENU 〕━━━⬣\n┃ ${prefix}joke\n┃ ${prefix}truth\n┃ ${prefix}dare\n╰━━━━━━━━━━━━━━━━━━⬣`
+    }
+    return menus[body] || null
 }
