@@ -194,41 +194,46 @@ loadCommands()
 // GET BODY
 // ========================================
 
+function unwrapMessage(message) {
+    let current = message || {}
+
+    for (let i = 0; i < 5; i++) {
+        if (current?.ephemeralMessage?.message) {
+            current = current.ephemeralMessage.message
+            continue
+        }
+        if (current?.viewOnceMessage?.message) {
+            current = current.viewOnceMessage.message
+            continue
+        }
+        if (current?.viewOnceMessageV2?.message) {
+            current = current.viewOnceMessageV2.message
+            continue
+        }
+        if (current?.documentWithCaptionMessage?.message) {
+            current = current.documentWithCaptionMessage.message
+            continue
+        }
+        break
+    }
+    return current || {}
+}
+
 function getBody(msg) {
-
     try {
-
-        const message =
-            msg.message || {}
-
+        const message = unwrapMessage(msg?.message)
         return (
-
             message.conversation ||
-
-            message.extendedTextMessage
-                ?.text ||
-
-            message.imageMessage
-                ?.caption ||
-
-            message.videoMessage
-                ?.caption ||
-
-            message.buttonsResponseMessage
-                ?.selectedButtonId ||
-
-            message.listResponseMessage
-                ?.singleSelectReply
-                ?.selectedRowId ||
-
-            message.templateButtonReplyMessage
-                ?.selectedId ||
-
+            message.extendedTextMessage?.text ||
+            message.imageMessage?.caption ||
+            message.videoMessage?.caption ||
+            message.documentMessage?.caption ||
+            message.buttonsResponseMessage?.selectedButtonId ||
+            message.listResponseMessage?.singleSelectReply?.selectedRowId ||
+            message.templateButtonReplyMessage?.selectedId ||
             ''
         )
-
     } catch {
-
         return ''
     }
 }
@@ -262,6 +267,10 @@ async function handleCommand(
 
         const body =
             getBody(msg)
+
+        console.log(
+            `📨 MESSAGE RECEIVED | from=${from} | fromMe=${!!msg.key?.fromMe} | body=${body ? 'TEXT' : 'NON-TEXT'}`
+        )
 
         if (!body) return
 
