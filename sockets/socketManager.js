@@ -400,13 +400,54 @@ async function createSocket(phone, options = {}) {
                 // A pairing socket has its own temporary auth directory. Never
                 // delete the user's existing registered session because of a
                 // failed retry.
+                //
+                // IMPORTANT: WhatsApp/Baileys commonly closes the temporary
+                // pairing socket with 515 (restartRequired) immediately after
+                // the phone accepts the pairing code. In that case `creds` is
+                // already registered, but connection='open' was never emitted.
+                // The old v8 flow stopped here and left the website on
+                // "logging in" forever. Promote the newly registered auth and
+                // create the normal authenticated socket instead.
+                if (registeredNow && statusCode === DisconnectReason.restartRequired) {
+                    try {
+                        console.log(`🔐 PAIRING ACCEPTED: ${phone} | code=515 | promoting credentials`)
+
+                        const oldSock = sessions.get(phone)
+                        if (oldSock && oldSock !== sock) {
+                            oldSock.__replaced = true
+                            try { oldSock.end(undefined) } catch (_) {}
+                        }
+
+                        promotePairingSession(phone, sock)
+                        pairingSockets.delete(phone)
+
+                        // The temporary socket is closed by WhatsApp as part of
+                        // the restart-required handshake. Start a fresh normal
+                        // socket from the promoted canonical credentials.
+                        setTimeout(async () => {
+                            try {
+                                const active = await createSocket(phone, { pairing: false })
+                                console.log(`✅ PAIRING RESTARTED: ${phone} | authenticated socket created`)
+                                if (socketHandler) {
+                                    try { socketHandler(active) } catch (_) {}
+                                }
+                            } catch (err) {
+                                console.error(`❌ POST-PAIR RECONNECT FAILED ${phone}:`, err.message)
+                            }
+                        }, 750)
+
+                        cleanupPairingSessionPath(sock.__pairingAuthPath, `${phone} temporary-pair-auth`)
+                    } catch (err) {
+                        console.error(`❌ PAIRING 515 PROMOTION FAILED ${phone}:`, err.message)
+                    }
+                    return
+                }
+
                 if (registeredNow) {
-                    // If this pairing socket registered successfully, its auth
-                    // was already promoted on connection=open in normal cases.
+                    // If this pairing socket registered successfully and closed
+                    // for another reason, retain the temporary auth briefly so
+                    // it can still be inspected/recovered.
                     if (sock.__promoted) {
-                        // The promoted socket may still be using the temporary
-                        // auth directory, so clean that directory only after
-                        // this socket has actually closed.
                         cleanupPairingSessionPath(sock.__pairingAuthPath, `${phone} old-pair-auth`)
                         return
                     }
