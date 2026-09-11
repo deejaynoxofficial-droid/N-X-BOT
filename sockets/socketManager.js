@@ -19,6 +19,15 @@ const creating = new Map()
 // Prevent duplicate /pair requests for the same number.
 const pairingRequests = new Map()
 
+// The main app registers the message handler here. Every socket created
+// (pairing, normal login, reconnect, or startup restore) receives it.
+let socketHandler = null
+
+function setSocketHandler(handler) {
+    socketHandler = typeof handler === 'function' ? handler : null
+    console.log(`🔗 SOCKET HANDLER ${socketHandler ? 'REGISTERED' : 'CLEARED'}`)
+}
+
 // Keep a failed pairing auth state alive briefly after a code has been issued.
 // This avoids deleting credentials while WhatsApp is still processing the code.
 const PAIRING_GRACE_MS = 120000
@@ -227,6 +236,17 @@ async function createSocket(phone, options = {}) {
 
         sock.ev.on('creds.update', saveCreds)
         sessions.set(phone, sock)
+
+        // Attach the command/message pipeline to EVERY newly created socket.
+        // This fixes commands after pairing and after automatic reconnects.
+        if (socketHandler) {
+            try {
+                socketHandler(sock)
+                console.log(`⌨️ MESSAGE HANDLER ATTACHED: ${phone}`)
+            } catch (err) {
+                console.error(`❌ MESSAGE HANDLER ATTACH FAILED ${phone}:`, err.message)
+            }
+        }
 
         sock.ev.on('connection.update', async update => {
             const {
@@ -490,5 +510,6 @@ module.exports = {
     isRegisteredSession,
     removeSocket,
     sessions,
-    normalizePhone
+    normalizePhone,
+    setSocketHandler
 }
