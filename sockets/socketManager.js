@@ -220,6 +220,8 @@ async function createSocket(phone, options = {}) {
         sock.__phone = phone
         sock.__pairing = pairing
         sock.__pairingCodeIssued = false
+        sock.__lastStatusCode = null
+        sock.__lastDisconnectMessage = null
         sock.__isConnected = false
         sock.__registeredAtCreation = state?.creds?.registered === true
 
@@ -235,6 +237,8 @@ async function createSocket(phone, options = {}) {
             } = update || {}
 
             const statusCode = getStatusCode(lastDisconnect)
+            if (statusCode) sock.__lastStatusCode = statusCode
+            if (lastDisconnect?.error) sock.__lastDisconnectMessage = lastDisconnect.error?.message || String(lastDisconnect.error)
 
             if (connection || qr || typeof isOnline !== 'undefined') {
                 console.log(
@@ -356,12 +360,10 @@ async function createPairingSocket(phone) {
         throw new Error('INVALID PHONE NUMBER')
     }
 
-    // Never replace an already registered account.
     if (await isRegisteredSession(phone)) {
         throw new Error('THIS NUMBER ALREADY HAS A REGISTERED SESSION')
     }
 
-    // If two browser requests arrive together, share the same pairing flow.
     if (pairingRequests.has(phone)) {
         return pairingRequests.get(phone)
     }
@@ -369,22 +371,24 @@ async function createPairingSocket(phone) {
     const promise = (async () => {
         const existing = sessions.get(phone)
         if (existing && isSocketAlive(existing)) {
-            // Reuse an active pairing socket rather than creating a second one.
             return existing
         }
 
-        if (existing) {
-            sessions.delete(phone)
-        }
+        if (existing) sessions.delete(phone)
 
-        // A fresh pairing starts from a clean, unregistered auth directory.
+        // Only remove stale auth when it is not a registered session.
         await cleanupIncompleteSession(phone)
 
         const sock = await createSocket(phone, { pairing: true })
-        await waitForPairingReady(sock)
+
+        // requestPairingCode must not race the initial WhatsApp handshake.
+        await waitForPairingReady(sock, 15000)
+        await new Promise(resolve => setTimeout(resolve, 700))
 
         if (!isSocketAlive(sock)) {
-            throw new Error('WHATSAPP SOCKET CLOSED DURING PAIRING STARTUP')
+            const err = new Error('WHATSAPP CONNECTION CLOSED BEFORE PAIRING CODE')
+            err.statusCode = sock.__lastStatusCode || null
+            throw err
         }
 
         return sock
@@ -395,8 +399,6 @@ async function createPairingSocket(phone) {
     try {
         return await promise
     } finally {
-        // Do not keep the lock after the socket has been prepared. The socket
-        // itself remains in sessions and is reused by the next status request.
         pairingRequests.delete(phone)
     }
 }
@@ -406,37 +408,38 @@ async function createPairingSocket(phone) {
 // ========================================
 async function requestPairingCode(phone) {
     phone = normalizePhone(phone)
-
-    if (!phone) {
-        throw new Error('INVALID PHONE NUMBER')
-    }
+    if (!phone) throw new Error('INVALID PHONE NUMBER')
 
     const sock = await createPairingSocket(phone)
 
     if (!isSocketAlive(sock)) {
-        throw new Error('WHATSAPP SOCKET CLOSED BEFORE PAIRING CODE')
+        const err = new Error(
+            sock.__lastStatusCode
+                ? `WHATSAPP CONNECTION CLOSED (${sock.__lastStatusCode})`
+                : 'WHATSAPP SOCKET CLOSED BEFORE PAIRING CODE'
+        )
+        err.statusCode = sock.__lastStatusCode || null
+        throw err
     }
 
-    // Never ask Baileys for multiple codes during one pairing attempt.
     if (sock.__pairingCodeIssued) {
         throw new Error('PAIRING CODE ALREADY ISSUED FOR THIS NUMBER')
     }
 
     console.log(`📲 REQUESTING PAIRING CODE: ${phone}`)
 
-    const code = await sock.requestPairingCode(phone)
-
-    if (!code) {
-        throw new Error('PAIRING CODE WAS NOT GENERATED')
-    }
-
-    sock.__pairingCodeIssued = true
-
-    console.log(`✅ PAIR CODE GENERATED: ${phone}`)
-
-    return {
-        sock,
-        code
+    try {
+        // Exactly one request for each fresh pairing socket.
+        const code = await sock.requestPairingCode(phone)
+        if (!code) throw new Error('PAIRING CODE WAS NOT GENERATED')
+        sock.__pairingCodeIssued = true
+        console.log(`✅ PAIR CODE GENERATED: ${phone}`)
+        return { sock, code }
+    } catch (err) {
+        const statusCode = getStatusCode(err) || sock.__lastStatusCode || null
+        err.statusCode = statusCode
+        console.error(`❌ PAIRING CODE ERROR ${phone}: status=${statusCode || 'unknown'} message=${err?.message || err}`)
+        throw err
     }
 }
 
