@@ -6,6 +6,8 @@ const path = require('path')
 
 const {
     createSocket,
+    createPairingSocket,
+    requestPairingCode,
     normalizePhone,
     sessions
 } = require('./sockets/socketManager')
