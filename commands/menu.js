@@ -374,24 +374,20 @@ ${settings.footer || ''}
             // SAVE MENU SESSION
             // ========================================
 
-            global.menuReplies[
+            const menuData = {
+                key: sentMessage?.key?.id || null,
+                time: Date.now(),
+                prefix,
+                from,
                 sender
-            ] = {
-
-                key:
-                    sentMessage
-                        ?.key
-                        ?.id,
-
-                time:
-                    Date.now(),
-
-                prefix
             }
 
-            console.log(
-                `✅ MENU SENT TO ${sender}`
-            )
+            // Store by chat JID. This is more reliable than using the
+            // sender number because newer WhatsApp accounts may use LID JIDs.
+            global.menuReplies[from] = menuData
+            global.menuReplies[sender] = menuData
+
+            console.log(`✅ MENU SENT | chat=${from} | sender=${sender} | menuId=${menuData.key}`)
 
         } catch (err) {
 
@@ -424,14 +420,20 @@ ${settings.footer || ''}
                 ? senderNumber
                 : senderNumber + '@s.whatsapp.net'
 
-            const replyData = global.menuReplies?.[sender]
-            if (!replyData) return false
+            // Prefer the current chat key, then fall back to normalized sender.
+            // This supports both phone-number JIDs and newer WhatsApp LID JIDs.
+            const replyData =
+                global.menuReplies?.[from] ||
+                global.menuReplies?.[sender]
+
+            if (!replyData) {
+                console.log(`ℹ️ MENU NUMBER IGNORED | no active menu | chat=${from} sender=${sender}`)
+                return false
+            }
 
             // Accept BOTH ways:
             // 1. User replies/quotes the menu message with 1-7.
             // 2. User simply sends 1-7 after opening the menu.
-            // This keeps the menu useful on WhatsApp clients where
-            // replying to an image message is inconvenient.
             const message = msg.message || {}
             const wrappers = [
                 message,
@@ -489,6 +491,7 @@ ${settings.footer || ''}
 
             // Consume the menu selection so random later 1-7 messages
             // don't keep triggering the same menu forever.
+            delete global.menuReplies[from]
             delete global.menuReplies[sender]
 
             return true
