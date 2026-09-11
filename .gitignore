@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+!.env.example
+sessions/*
+!sessions/.gitkeep
+temp/*
+logs/*
+*.log

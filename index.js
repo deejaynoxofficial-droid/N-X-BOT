@@ -9,7 +9,9 @@ const {
     createPairingSocket,
     requestPairingCode,
     normalizePhone,
-    sessions
+    sessions,
+    setSocketHandler,
+    isRegisteredSession
 } = require('./sockets/socketManager')
 
 const {
@@ -301,6 +303,9 @@ function attachMessageHandlers(sock) {
     )
 }
 
+// Register once so every socket created by socketManager gets the message pipeline.
+setSocketHandler(attachMessageHandlers)
+
 // ========================================
 // CREATE / PREPARE BOT
 // ========================================
@@ -390,6 +395,38 @@ app.get('/pair', async (req, res) => {
 })
 
 // ========================================
+// COMMAND DIAGNOSTICS
+// ========================================
+
+app.get('/commands', (req, res) => {
+    const { commands } = require('./handler/commandHandler')
+    return res.json({
+        status: true,
+        count: commands.size,
+        commands: [...commands.keys()].sort()
+    })
+})
+
+app.get('/debug/socket', (req, res) => {
+    const phone = normalizePhone(req.query.number)
+    if (!phone) {
+        return res.status(400).json({ status: false, message: 'Phone number required' })
+    }
+    const sock = sessions.get(phone)
+    return res.json({
+        status: true,
+        number: phone,
+        exists: !!sock,
+        connected: !!(sock && sock.ws && sock.ws.readyState === 1),
+        pairing: !!sock?.__pairing,
+        registeredAtCreation: !!sock?.__registeredAtCreation,
+        pairingCodeIssued: !!sock?.__pairingCodeIssued,
+        lastStatusCode: sock?.__lastStatusCode || null,
+        lastDisconnectMessage: sock?.__lastDisconnectMessage || null
+    })
+})
+
+// ========================================
 // SESSION STATUS
 // ========================================
 
@@ -424,6 +461,39 @@ app.get('/status', (req, res) => {
         connected
     })
 })
+
+// ========================================
+// RESTORE REGISTERED SESSIONS
+// ========================================
+
+async function restoreSessions() {
+    try {
+        if (!fs.existsSync(SESSIONS_PATH)) return
+
+        const entries = fs.readdirSync(SESSIONS_PATH, { withFileTypes: true })
+        const candidates = entries
+            .filter(entry => entry.isDirectory())
+            .map(entry => normalizePhone(entry.name))
+            .filter(Boolean)
+
+        console.log(`🔎 SESSION RESTORE: found ${candidates.length} session folder(s)`)
+
+        for (const phone of candidates) {
+            try {
+                if (!(await isRegisteredSession(phone))) {
+                    console.log(`⏭️ SKIP UNREGISTERED SESSION: ${phone}`)
+                    continue
+                }
+                console.log(`♻️ RESTORING SESSION: ${phone}`)
+                await prepareBot(phone)
+            } catch (err) {
+                console.error(`❌ SESSION RESTORE FAILED ${phone}:`, err.message)
+            }
+        }
+    } catch (err) {
+        console.error('❌ SESSION RESTORE ERROR:', err.message)
+    }
+}
 
 // ========================================
 // GLOBAL ERROR PROTECTION
@@ -470,5 +540,9 @@ app.listen(
 ┃ 🚀 SERVER ONLINE
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━⬣
         `)
+
+        restoreSessions().catch(err => {
+            console.error('❌ STARTUP RESTORE FAILED:', err.message)
+        })
     }
 )
