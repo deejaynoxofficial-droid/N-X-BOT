@@ -1,139 +1,203 @@
-require("dotenv").config();
+require('dotenv').config()
 
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-const pino = require("pino");
-const { default: makeWASocket, useMultiFileAuthState, delay } = require("@whiskeysockets/baileys");
+// ========================================
+// IMPORTS
+// ========================================
 
-process.on("uncaughtException", (err) => {
-    console.error("Uncaught Exception:", err);
-});
+const express = require('express')
+const fs = require('fs')
+const path = require('path')
 
-process.on("unhandledRejection", (reason) => {
-    console.error("Unhandled Rejection:", reason);
-});
+const {
+    createSocket,
+    sessions,
+    normalizePhone
+} = require('./sockets/socketManager')
 
-const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+// ========================================
+// APP
+// ========================================
 
-const SESSION_PATH = path.join(__dirname, "sessions");
+const app = express()
+const PORT = Number(process.env.PORT) || 3000
+
+const SESSION_PATH = path.join(__dirname, 'sessions')
 
 if (!fs.existsSync(SESSION_PATH)) {
-    fs.mkdirSync(SESSION_PATH, { recursive: true });
+    fs.mkdirSync(SESSION_PATH, { recursive: true })
 }
 
-// Map to hold active socket connections in memory
-const activeSockets = new Map();
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(express.static(path.join(__dirname, 'public')))
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
+// ========================================
+// FRONTEND
+// ========================================
 
-app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+app.get('/', (req, res) => {
+    res.sendFile(
+        path.join(__dirname, 'public', 'index.html')
+    )
+})
 
-app.get("/health", (req, res) => {
+// ========================================
+// HEALTH
+// ========================================
+
+app.get('/health', (req, res) => {
     res.status(200).json({
-        status: "ok",
-        uptime: process.uptime(),
-        port: PORT
-    });
-});
+        status: 'ok',
+        uptime: Math.floor(process.uptime()),
+        activeSockets: sessions.size
+    })
+})
 
-app.get("/pair", async (req, res) => {
-    let phoneNumber = req.query.number || req.query.phone || req.query.code;
+// ========================================
+// PAIRING ROUTE
+// ========================================
 
-    if (!phoneNumber) {
-        return res.status(400).json({
-            status: false,
-            error: "Please provide a valid phone number."
-        });
-    }
-
-    const sanitizedNumber = phoneNumber.replace(/[^0-9]/g, "");
-
+app.get('/pair', async (req, res) => {
     try {
-        const numberSessionFolder = path.join(SESSION_PATH, sanitizedNumber);
+        let number =
+            req.query.number ||
+            req.query.phone
 
-        // If an active socket already exists for this number, close it first
-        if (activeSockets.has(sanitizedNumber)) {
-            try {
-                activeSockets.get(sanitizedNumber).end(undefined);
-            } catch (e) {}
-            activeSockets.delete(sanitizedNumber);
-        }
-
-        // Clean up partial session files if not registered
-        if (fs.existsSync(numberSessionFolder)) {
-            const credsPath = path.join(numberSessionFolder, "creds.json");
-            if (!fs.existsSync(credsPath)) {
-                fs.rmSync(numberSessionFolder, { recursive: true, force: true });
-            }
-        }
-
-        const { state, saveCreds } = await useMultiFileAuthState(numberSessionFolder);
-
-        const socket = makeWASocket({
-            auth: state,
-            printQRInTerminal: false,
-            logger: pino({ level: "silent" }),
-            browser: ["Ubuntu", "Chrome", "20.0.04"],
-            connectTimeoutMs: 60000,
-            defaultQueryTimeoutMs: 60000,
-            keepAliveIntervalMs: 10000,
-            markOnlineOnConnect: true
-        });
-
-        // Store active socket in global memory map to prevent garbage collection
-        activeSockets.set(sanitizedNumber, socket);
-
-        socket.ev.on("creds.update", saveCreds);
-
-        socket.ev.on("connection.update", async (update) => {
-            const { connection, lastDisconnect } = update;
-            if (connection === "open") {
-                console.log(`✅ Connection linked successfully for: ${sanitizedNumber}`);
-            } else if (connection === "close") {
-                console.log(`ℹ️ Socket closed for: ${sanitizedNumber}`);
-                activeSockets.delete(sanitizedNumber);
-            }
-        });
-
-        if (!socket.authState.creds.registered) {
-            await delay(3000); // Allow socket connection to establish fully
-
-            const rawCode = await socket.requestPairingCode(sanitizedNumber);
-            const formattedCode = rawCode?.match(/.{1,4}/g)?.join("-") || rawCode;
-
-            return res.status(200).json({
-                status: true,
-                code: formattedCode,
-                pairingCode: formattedCode,
-                number: sanitizedNumber
-            });
-        } else {
+        if (!number) {
             return res.status(400).json({
                 status: false,
-                error: "This number is already registered!"
-            });
+                error: 'Please enter a phone number.'
+            })
         }
+
+        number = normalizePhone(number)
+
+        // Uganda convenience: 07xxxxxxxx -> 2567xxxxxxxx
+        if (number.startsWith('0')) {
+            number = '256' + number.slice(1)
+        }
+
+        // Basic validation.
+        // International numbers should normally contain at least 10 digits.
+        if (number.length < 10 || number.length > 15) {
+            return res.status(400).json({
+                status: false,
+                error: 'Invalid phone number.'
+            })
+        }
+
+        console.log(`📲 PAIR REQUEST: ${number}`)
+
+        // ONE socket only. The pairing route does not create
+        // its own separate Baileys socket.
+        const sock = await createSocket(number)
+
+        // If the account is already authenticated, do not generate
+        // another pairing code.
+        if (sock.authState?.creds?.registered) {
+            return res.status(409).json({
+                status: false,
+                error: 'This number is already paired.',
+                number
+            })
+        }
+
+        /*
+         * IMPORTANT:
+         * Do NOT wait for connection === "open" here.
+         *
+         * "open" happens AFTER the WhatsApp account has been
+         * authenticated. We need the pairing code BEFORE that.
+         */
+        await new Promise(resolve => setTimeout(resolve, 2500))
+
+        const rawCode =
+            await sock.requestPairingCode(number)
+
+        const code =
+            String(rawCode || '')
+                .replace(/[^A-Z0-9]/gi, '')
+                .match(/.{1,4}/g)
+                ?.join('-') || rawCode
+
+        console.log(
+            `🔐 PAIRING CODE FOR ${number}: ${code}`
+        )
+
+        return res.status(200).json({
+            status: true,
+            code,
+            pairingCode: code,
+            number,
+            message: 'Enter this code in WhatsApp Linked Devices.'
+        })
+
     } catch (error) {
-        console.error("Pairing Error:", error);
+        console.error(
+            '❌ PAIRING ERROR:',
+            error
+        )
+
         return res.status(500).json({
             status: false,
-            error: "Failed to generate pairing code. Please try again."
-        });
+            error: 'Failed to generate pairing code.',
+            message: error?.message || 'Unknown server error'
+        })
     }
-});
+})
 
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(`
-╭━━━━━━━━━━━━━━━━━━━━━━⬣
-┃ 🤖 SERVER ONLINE
+// ========================================
+// START SERVER
+// ========================================
+
+const server = app.listen(
+    PORT,
+    '0.0.0.0',
+    () => {
+        console.log(`
+╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━⬣
+┃ 🤖 NOX-SPARROW BOT
 ┃ 🌐 PORT: ${PORT}
-┃ 🚀 READY
-╰━━━━━━━━━━━━━━━━━━━━━━⬣
-`);
-});
+┃ 🔐 PAIRING: READY
+┃ 👥 MULTI-USER: ENABLED
+┃ 🚀 SERVER ONLINE
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━⬣
+`)
+    }
+)
+
+// ========================================
+// SAFE PROCESS HANDLING
+// ========================================
+
+process.on('unhandledRejection', (reason) => {
+    console.error('UNHANDLED REJECTION:', reason)
+})
+
+process.on('uncaughtException', (error) => {
+    console.error('UNCAUGHT EXCEPTION:', error)
+})
+
+// Graceful shutdown
+function shutdown(signal) {
+    console.log(`\n${signal} received. Shutting down...`)
+
+    for (const [phone, sock] of sessions) {
+        try {
+            sock.end(undefined)
+        } catch (_) {}
+
+        console.log(`🔌 Socket closed: ${phone}`)
+    }
+
+    server.close(() => {
+        process.exit(0)
+    })
+
+    setTimeout(() => {
+        process.exit(0)
+    }, 5000).unref()
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
