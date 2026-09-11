@@ -10,11 +10,18 @@ const fs = require('fs')
 const path = require('path')
 const pino = require('pino')
 
-// One socket per WhatsApp number
+// One live socket per WhatsApp number.
 const sessions = new Map()
 
-// Prevent two sockets from being created at the same time
+// Prevent duplicate socket creation.
 const creating = new Map()
+
+// Prevent duplicate /pair requests for the same number.
+const pairingRequests = new Map()
+
+// Keep a failed pairing auth state alive briefly after a code has been issued.
+// This avoids deleting credentials while WhatsApp is still processing the code.
+const PAIRING_GRACE_MS = 120000
 
 const SESSIONS_DIR = path.join(__dirname, '..', 'sessions')
 
@@ -42,7 +49,14 @@ function describeDisconnect(lastDisconnect) {
     return err?.message || String(err)
 }
 
-// Check whether an auth directory contains a fully registered account.
+function isSocketAlive(sock) {
+    return !!(
+        sock &&
+        sock.ws &&
+        sock.ws.readyState !== 3
+    )
+}
+
 async function isRegisteredSession(phone) {
     phone = normalizePhone(phone)
     const sessionPath = getSessionPath(phone)
@@ -58,8 +72,7 @@ async function isRegisteredSession(phone) {
     }
 }
 
-// Only remove an incomplete/unregistered auth directory.
-// A valid logged-in session is NEVER deleted by this function.
+// Delete only an unregistered/incomplete auth folder.
 async function cleanupIncompleteSession(phone) {
     phone = normalizePhone(phone)
 
@@ -69,44 +82,65 @@ async function cleanupIncompleteSession(phone) {
 
     const sessionPath = getSessionPath(phone)
 
-    if (fs.existsSync(sessionPath)) {
-        fs.rmSync(sessionPath, {
-            recursive: true,
-            force: true
-        })
-        console.log(`🧹 INCOMPLETE SESSION REMOVED: ${phone}`)
-        return true
-    }
+    if (!fs.existsSync(sessionPath)) return false
 
-    return false
+    fs.rmSync(sessionPath, {
+        recursive: true,
+        force: true
+    })
+
+    console.log(`🧹 INCOMPLETE SESSION REMOVED: ${phone}`)
+    return true
 }
 
-// Wait until Baileys has started its connection handshake.
-// Pairing codes should not be requested immediately after makeWASocket().
-function waitForPairingReady(sock, timeoutMs = 15000) {
+// Cache the Baileys version so every /pair request does not wait for a
+// separate version lookup. A new lookup is allowed if the first one fails.
+let cachedVersion = null
+let versionPromise = null
+
+async function getBaileysVersion() {
+    if (cachedVersion) return cachedVersion
+
+    if (!versionPromise) {
+        versionPromise = fetchLatestBaileysVersion()
+            .then(result => {
+                cachedVersion = result.version
+                return cachedVersion
+            })
+            .finally(() => {
+                versionPromise = null
+            })
+    }
+
+    return versionPromise
+}
+
+// Wait only for the beginning of the WebSocket handshake. Do NOT wait for
+// connection=open because the account cannot be open until pairing completes.
+function waitForPairingReady(sock, timeoutMs = 10000) {
     if (!sock) {
         return Promise.reject(new Error('SOCKET NOT AVAILABLE'))
     }
 
-    if (sock.__pairingReady) {
-        return sock.__pairingReady
+    if (sock.__pairingReadyPromise) {
+        return sock.__pairingReadyPromise
     }
 
-    sock.__pairingReady = new Promise((resolve, reject) => {
+    sock.__pairingReadyPromise = new Promise((resolve, reject) => {
         let finished = false
-        let timer = null
+        let timer
 
         const finish = (fn, value) => {
             if (finished) return
             finished = true
-            if (timer) clearTimeout(timer)
+            clearTimeout(timer)
             try {
                 sock.ev.off('connection.update', onUpdate)
             } catch (_) {}
             fn(value)
         }
 
-        const onUpdate = (update) => {
+        const onUpdate = update => {
             const { connection, qr, lastDisconnect } = update || {}
 
             if (connection === 'connecting' || qr) {
@@ -118,7 +152,7 @@ function waitForPairingReady(sock, timeoutMs = 15000) {
                 finish(
                     reject,
                     new Error(
-                        `WHATSAPP CLOSED BEFORE PAIRING WAS READY (${getStatusCode(lastDisconnect) || 'unknown'}): ${describeDisconnect(lastDisconnect)}`
+                        `WHATSAPP CLOSED BEFORE PAIRING READY (${getStatusCode(lastDisconnect) || 'unknown'}): ${describeDisconnect(lastDisconnect)}`
                     )
                 )
             }
@@ -129,12 +163,12 @@ function waitForPairingReady(sock, timeoutMs = 15000) {
         timer = setTimeout(() => {
             finish(
                 reject,
-                new Error('TIMED OUT WAITING FOR WHATSAPP CONNECTION TO START')
+                new Error('TIMED OUT WAITING FOR WHATSAPP HANDSHAKE')
             )
         }, timeoutMs)
     })
 
-    return sock.__pairingReady
+    return sock.__pairingReadyPromise
 }
 
 // ========================================
@@ -149,13 +183,11 @@ async function createSocket(phone, options = {}) {
 
     const pairing = options.pairing === true
 
-    // Reuse a live socket for this number.
     const existing = sessions.get(phone)
-    if (existing && existing.ws && existing.ws.readyState !== 3) {
+    if (isSocketAlive(existing)) {
         return existing
     }
 
-    // If another request is already creating this socket, wait for it.
     if (creating.has(phone)) {
         return creating.get(phone)
     }
@@ -170,40 +202,31 @@ async function createSocket(phone, options = {}) {
         const { state, saveCreds } =
             await useMultiFileAuthState(sessionPath)
 
-        const { version } =
-            await fetchLatestBaileysVersion()
+        const version = await getBaileysVersion()
 
         const sock = makeWASocket({
             auth: state,
             version,
             logger: pino({ level: 'silent' }),
-
-            // Canonical Baileys browser identifier.
             browser: Browsers.ubuntu('Chrome'),
-
             printQRInTerminal: false,
             syncFullHistory: false,
             markOnlineOnConnect: false,
-
             keepAliveIntervalMs: 10000,
             connectTimeoutMs: 60000,
-
-            // Leaving this undefined avoids an overly aggressive query timeout
-            // during the pairing handshake on some Baileys 6.x deployments.
             defaultQueryTimeoutMs: undefined
         })
 
-        // Save credentials whenever Baileys changes them.
-        sock.ev.on('creds.update', saveCreds)
-
-        // Metadata used by reconnect/cleanup logic.
         sock.__phone = phone
         sock.__pairing = pairing
+        sock.__pairingCodeIssued = false
+        sock.__isConnected = false
         sock.__registeredAtCreation = state?.creds?.registered === true
 
+        sock.ev.on('creds.update', saveCreds)
         sessions.set(phone, sock)
 
-        sock.ev.on('connection.update', async (update) => {
+        sock.ev.on('connection.update', async update => {
             const {
                 connection,
                 lastDisconnect,
@@ -215,13 +238,13 @@ async function createSocket(phone, options = {}) {
 
             if (connection || qr || typeof isOnline !== 'undefined') {
                 console.log(
-                    `📡 CONNECTION UPDATE ${phone} | connection=${connection || '-'} | online=${typeof isOnline === 'undefined' ? '-' : isOnline} | qr=${qr ? 'YES' : 'NO'} | code=${statusCode || '-'}${lastDisconnect ? ` | error=${describeDisconnect(lastDisconnect)}` : ''}`
+                    `📡 CONNECTION UPDATE ${phone} | connection=${connection || '-'} | online=${typeof isOnline === 'undefined' ? '-' : isOnline} | qr=${qr ? 'YES' : 'NO'} | code=${statusCode || '-'}`
                 )
             }
 
             if (connection === 'open') {
-                console.log(`✅ WHATSAPP CONNECTED: ${phone}`)
                 sock.__isConnected = true
+                console.log(`✅ WHATSAPP CONNECTED: ${phone}`)
                 return
             }
 
@@ -234,38 +257,54 @@ async function createSocket(phone, options = {}) {
 
             sock.__isConnected = false
 
-            // Remove only this exact socket from the map.
             if (sessions.get(phone) === sock) {
                 sessions.delete(phone)
             }
 
+            const registeredNow = state?.creds?.registered === true
+
             console.log(
-                `❌ WHATSAPP DISCONNECTED: ${phone} | code: ${statusCode || 'unknown'} | ${describeDisconnect(lastDisconnect)}`
+                `❌ WHATSAPP DISCONNECTED: ${phone} | code=${statusCode || 'unknown'} | registered=${registeredNow} | pairingCodeIssued=${sock.__pairingCodeIssued}`
             )
 
-            // A pairing socket that never became registered must NOT be
-            // automatically recreated. Recreating it can loop into 401/428.
-            const registeredNow =
-                state?.creds?.registered === true
-
-            if (!registeredNow) {
-                console.log(
-                    `🛑 PAIRING SOCKET STOPPED: ${phone} | account is not registered`
-                )
-
-                // Remove only incomplete auth state. Never touch a valid session.
-                try {
-                    await cleanupIncompleteSession(phone)
-                } catch (err) {
+            // A code may already have been delivered to the user. Never delete
+            // the auth folder immediately in that situation; WhatsApp may still
+            // be finishing the companion registration.
+            if (sock.__pairing && !registeredNow) {
+                if (sock.__pairingCodeIssued) {
                     console.log(
-                        `⚠️ INCOMPLETE SESSION CLEANUP FAILED ${phone}: ${err.message}`
+                        `⏳ PAIRING GRACE PERIOD: ${phone} | keeping auth state for ${PAIRING_GRACE_MS / 1000}s`
                     )
+
+                    setTimeout(async () => {
+                        // If another socket has since connected/registered,
+                        // leave the session alone.
+                        if (await isRegisteredSession(phone)) return
+                        if (sessions.has(phone)) return
+
+                        try {
+                            await cleanupIncompleteSession(phone)
+                        } catch (err) {
+                            console.log(
+                                `⚠️ PAIRING GRACE CLEANUP FAILED ${phone}: ${err.message}`
+                            )
+                        }
+                    }, PAIRING_GRACE_MS)
+                } else {
+                    // No code was ever delivered, so this attempt can be
+                    // safely discarded immediately.
+                    try {
+                        await cleanupIncompleteSession(phone)
+                    } catch (err) {
+                        console.log(
+                            `⚠️ INCOMPLETE SESSION CLEANUP FAILED ${phone}: ${err.message}`
+                        )
+                    }
                 }
 
                 return
             }
 
-            // Valid authenticated sessions can reconnect after transient errors.
             if (statusCode === DisconnectReason.loggedOut) {
                 console.log(`🗑️ LOGGED OUT: ${phone}`)
                 try {
@@ -284,8 +323,9 @@ async function createSocket(phone, options = {}) {
                 return
             }
 
+            // Only authenticated, non-pairing sockets reconnect.
             setTimeout(() => {
-                createSocket(phone, { pairing: false }).catch((err) => {
+                createSocket(phone, { pairing: false }).catch(err => {
                     console.error(
                         `RECONNECT ERROR ${phone}:`,
                         err.message
@@ -307,7 +347,7 @@ async function createSocket(phone, options = {}) {
 }
 
 // ========================================
-// CREATE FRESH SOCKET FOR PAIRING
+// SAFE PAIRING SOCKET
 // ========================================
 async function createPairingSocket(phone) {
     phone = normalizePhone(phone)
@@ -316,27 +356,88 @@ async function createPairingSocket(phone) {
         throw new Error('INVALID PHONE NUMBER')
     }
 
-    // Do not destroy an already authenticated account.
+    // Never replace an already registered account.
     if (await isRegisteredSession(phone)) {
-        const existing = sessions.get(phone)
-        if (existing && existing.ws && existing.ws.readyState !== 3) {
-            throw new Error('THIS NUMBER IS ALREADY CONNECTED')
-        }
         throw new Error('THIS NUMBER ALREADY HAS A REGISTERED SESSION')
     }
 
-    // Remove stale/partial creds left by an earlier failed pairing attempt.
-    if (sessions.has(phone)) {
-        removeSocket(phone)
+    // If two browser requests arrive together, share the same pairing flow.
+    if (pairingRequests.has(phone)) {
+        return pairingRequests.get(phone)
     }
 
-    await cleanupIncompleteSession(phone)
+    const promise = (async () => {
+        const existing = sessions.get(phone)
+        if (existing && isSocketAlive(existing)) {
+            // Reuse an active pairing socket rather than creating a second one.
+            return existing
+        }
 
-    const sock = await createSocket(phone, { pairing: true })
+        if (existing) {
+            sessions.delete(phone)
+        }
 
-    await waitForPairingReady(sock)
+        // A fresh pairing starts from a clean, unregistered auth directory.
+        await cleanupIncompleteSession(phone)
 
-    return sock
+        const sock = await createSocket(phone, { pairing: true })
+        await waitForPairingReady(sock)
+
+        if (!isSocketAlive(sock)) {
+            throw new Error('WHATSAPP SOCKET CLOSED DURING PAIRING STARTUP')
+        }
+
+        return sock
+    })()
+
+    pairingRequests.set(phone, promise)
+
+    try {
+        return await promise
+    } finally {
+        // Do not keep the lock after the socket has been prepared. The socket
+        // itself remains in sessions and is reused by the next status request.
+        pairingRequests.delete(phone)
+    }
+}
+
+// ========================================
+// REQUEST ONE PAIRING CODE
+// ========================================
+async function requestPairingCode(phone) {
+    phone = normalizePhone(phone)
+
+    if (!phone) {
+        throw new Error('INVALID PHONE NUMBER')
+    }
+
+    const sock = await createPairingSocket(phone)
+
+    if (!isSocketAlive(sock)) {
+        throw new Error('WHATSAPP SOCKET CLOSED BEFORE PAIRING CODE')
+    }
+
+    // Never ask Baileys for multiple codes during one pairing attempt.
+    if (sock.__pairingCodeIssued) {
+        throw new Error('PAIRING CODE ALREADY ISSUED FOR THIS NUMBER')
+    }
+
+    console.log(`📲 REQUESTING PAIRING CODE: ${phone}`)
+
+    const code = await sock.requestPairingCode(phone)
+
+    if (!code) {
+        throw new Error('PAIRING CODE WAS NOT GENERATED')
+    }
+
+    sock.__pairingCodeIssued = true
+
+    console.log(`✅ PAIR CODE GENERATED: ${phone}`)
+
+    return {
+        sock,
+        code
+    }
 }
 
 // ========================================
@@ -379,6 +480,7 @@ function cleanupSession(phone) {
 module.exports = {
     createSocket,
     createPairingSocket,
+    requestPairingCode,
     waitForPairingReady,
     cleanupSession,
     cleanupIncompleteSession,
