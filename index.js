@@ -344,7 +344,6 @@ app.get('/pair', async (req, res) => {
         })
     }
 
-    // Uganda convenience: 0700xxxxxx -> 256700xxxxxx
     if (phone.startsWith('0') && phone.length === 10) {
         phone = '256' + phone.slice(1)
     }
@@ -358,22 +357,34 @@ app.get('/pair', async (req, res) => {
 
     try {
         console.log(`📲 PAIR REQUEST: ${phone}`)
-
-        // One controlled pairing flow per number. The socket is prepared,
-        // the code is requested once, and the code is returned immediately.
         const result = await requestPairingCode(phone)
 
         return res.json({
             status: true,
             number: phone,
-            code: result.code
+            code: result.code,
+            message: 'PAIRING CODE GENERATED. ENTER IT ON WHATSAPP NOW.'
         })
     } catch (err) {
-        console.error(`❌ PAIR ERROR ${phone}:`, err)
+        const statusCode = err?.statusCode || null
+        const message = statusCode
+            ? `WHATSAPP CONNECTION CLOSED (${statusCode})`
+            : (err?.message || 'Pairing failed')
 
-        return res.status(500).json({
+        console.error(`❌ PAIR ERROR ${phone}: ${message}`)
+
+        return res.status(502).json({
             status: false,
-            message: err?.message || 'Pairing failed'
+            number: phone,
+            message,
+            code: statusCode,
+            hint: statusCode === 428
+                ? 'WhatsApp closed the pairing handshake (428). Avoid repeated retries and check the Render logs.'
+                : statusCode === 401
+                    ? 'WhatsApp rejected the session (401). Wait before trying another fresh pairing.'
+                    : statusCode === 515
+                        ? 'WhatsApp closed the linking session (515). A fresh pairing attempt may be required.'
+                        : 'Check the Render logs for the exact disconnect reason.'
         })
     }
 })
