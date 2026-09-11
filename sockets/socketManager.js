@@ -6,65 +6,69 @@ const {
 } = require('@whiskeysockets/baileys')
 
 const fs = require('fs')
-
 const path = require('path')
-
 const pino = require('pino')
 
+// One socket per WhatsApp number
 const sessions = new Map()
 
-//========================================
-// CREATE SOCKET
-//========================================
+// Prevent two sockets from being created at the same time
+const creating = new Map()
+
+const SESSIONS_DIR = path.join(__dirname, '..', 'sessions')
+
+if (!fs.existsSync(SESSIONS_DIR)) {
+    fs.mkdirSync(SESSIONS_DIR, { recursive: true })
+}
+
+function normalizePhone(phone) {
+    return String(phone || '').replace(/\D/g, '')
+}
+
+function getSessionPath(phone) {
+    return path.join(SESSIONS_DIR, normalizePhone(phone))
+}
+
+// ========================================
+// CREATE / GET ONE SOCKET
+// ========================================
 
 async function createSocket(phone) {
+    phone = normalizePhone(phone)
 
-    // RETURN EXISTING SOCKET
-    if (sessions.has(phone)) {
-
-        return sessions.get(phone)
+    if (!phone) {
+        throw new Error('INVALID PHONE NUMBER')
     }
 
-    const sessionPath =
-        path.join(
-            __dirname,
-            '../sessions',
-            phone
-        )
+    // Reuse a live socket for this number
+    const existing = sessions.get(phone)
 
-    if (!fs.existsSync(sessionPath)) {
-
-        fs.mkdirSync(
-            sessionPath,
-            {
-                recursive: true
-            }
-        )
+    if (existing && existing.ws && existing.ws.readyState !== 3) {
+        return existing
     }
 
-    const {
-        state,
-        saveCreds
-    } =
-    await useMultiFileAuthState(
-        sessionPath
-    )
+    // If another request is already creating this socket, wait for it
+    if (creating.has(phone)) {
+        return creating.get(phone)
+    }
 
-    const {
-        version
-    } =
-    await fetchLatestBaileysVersion()
+    const promise = (async () => {
+        const sessionPath = getSessionPath(phone)
 
-    const sock =
-        makeWASocket({
+        if (!fs.existsSync(sessionPath)) {
+            fs.mkdirSync(sessionPath, { recursive: true })
+        }
 
+        const { state, saveCreds } =
+            await useMultiFileAuthState(sessionPath)
+
+        const { version } =
+            await fetchLatestBaileysVersion()
+
+        const sock = makeWASocket({
             auth: state,
-
             version,
-
-            logger: pino({
-                level: 'silent'
-            }),
+            logger: pino({ level: 'silent' }),
 
             browser: [
                 'Ubuntu',
@@ -73,118 +77,114 @@ async function createSocket(phone) {
             ],
 
             printQRInTerminal: false,
-
             syncFullHistory: false,
-
             markOnlineOnConnect: false,
 
             keepAliveIntervalMs: 10000,
-
             connectTimeoutMs: 60000,
-
             defaultQueryTimeoutMs: 60000
         })
 
-    sock.ev.on(
-        'creds.update',
-        saveCreds
-    )
+        // IMPORTANT: save credentials immediately whenever Baileys changes them
+        sock.ev.on('creds.update', saveCreds)
 
-    sessions.set(
-        phone,
-        sock
-    )
+        sessions.set(phone, sock)
 
-    //========================================
-    // CONNECTION UPDATE
-    //========================================
-
-    sock.ev.on(
-        'connection.update',
-        async ({
-            connection,
-            lastDisconnect
-        }) => {
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect } = update
 
             const statusCode =
-                lastDisconnect
-                ?.error
-                ?.output
-                ?.statusCode
+                lastDisconnect?.error?.output?.statusCode
 
             if (connection === 'open') {
-
-                console.log(
-                    `${phone} connected`
-                )
+                console.log(`✅ WHATSAPP CONNECTED: ${phone}`)
+                return
             }
 
             if (connection === 'close') {
+                // Only remove this exact socket from the map.
+                // This prevents an old socket from deleting a newer socket.
+                if (sessions.get(phone) === sock) {
+                    sessions.delete(phone)
+                }
 
                 console.log(
-                    `${phone} disconnected`
+                    `❌ WHATSAPP DISCONNECTED: ${phone} | code: ${statusCode || 'unknown'}`
                 )
 
-                // LOGGED OUT
-                if (
-                    statusCode ===
-                    DisconnectReason.loggedOut
-                ) {
-
-                    cleanupSession(phone)
-
+                // Logged out means the authentication is no longer valid.
+                if (statusCode === DisconnectReason.loggedOut) {
+                    console.log(`🗑️ LOGGED OUT: ${phone}`)
                     return
                 }
 
-                // RECONNECT
+                // Reconnect transient failures.
                 setTimeout(() => {
-
-                    createSocket(phone)
-
+                    createSocket(phone).catch((err) => {
+                        console.error(
+                            `RECONNECT ERROR ${phone}:`,
+                            err.message
+                        )
+                    })
                 }, 5000)
             }
-        }
-    )
+        })
 
-    return sock
+        return sock
+    })()
+
+    creating.set(phone, promise)
+
+    try {
+        return await promise
+    } finally {
+        creating.delete(phone)
+    }
 }
 
-//========================================
-// CLEANUP
-//========================================
+// ========================================
+// REMOVE SOCKET WITHOUT DELETING SESSION
+// ========================================
 
-function cleanupSession(phone) {
+function removeSocket(phone) {
+    phone = normalizePhone(phone)
 
-    const sessionPath =
-        path.join(
-            __dirname,
-            '../sessions',
-            phone
-        )
+    const sock = sessions.get(phone)
 
-    if (fs.existsSync(sessionPath)) {
-
-        fs.rmSync(
-            sessionPath,
-            {
-                recursive: true,
-                force: true
-            }
-        )
+    if (sock) {
+        try {
+            sock.end(undefined)
+        } catch (_) {}
     }
 
     sessions.delete(phone)
+}
 
-    console.log(
-        `SESSION REMOVED: ${phone}`
-    )
+// ========================================
+// DELETE AUTH SESSION
+// ========================================
+
+function cleanupSession(phone) {
+    phone = normalizePhone(phone)
+
+    removeSocket(phone)
+
+    const sessionPath = getSessionPath(phone)
+
+    if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, {
+            recursive: true,
+            force: true
+        })
+    }
+
+    console.log(`🗑️ SESSION REMOVED: ${phone}`)
 }
 
 module.exports = {
-
     createSocket,
-
     cleanupSession,
-
-    sessions
+    removeSocket,
+    sessions,
+    normalizePhone
 }
