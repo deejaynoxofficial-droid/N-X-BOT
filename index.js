@@ -11,7 +11,13 @@ const {
     sessions
 } = require('./sockets/socketManager')
 
-const { handleCommand } = require('./handler/commandHandler')
+const {
+    handleCommand
+} = require('./handler/commandHandler')
+
+// ========================================
+// OPTIONAL HANDLERS
+// ========================================
 
 let handleListeners = null
 let antiDelete = null
@@ -33,7 +39,13 @@ try {
 
 try {
     autoViewOnceHandler = require('./handler/autoViewOnce')
-} catch (err) {}
+} catch (err) {
+    // Optional feature
+}
+
+// ========================================
+// SETTINGS
+// ========================================
 
 let settings = {}
 
@@ -43,10 +55,18 @@ try {
     console.log('⚠️ settings.js not loaded')
 }
 
+// ========================================
+// EXPRESS
+// ========================================
+
 const app = express()
 const PORT = Number(process.env.PORT) || 3000
 const PUBLIC_PATH = path.join(__dirname, 'public')
 const SESSIONS_PATH = path.join(__dirname, 'sessions')
+
+// ========================================
+// CREATE REQUIRED DIRECTORIES
+// ========================================
 
 for (const folder of [
     SESSIONS_PATH,
@@ -61,9 +81,17 @@ for (const folder of [
     }
 }
 
+// ========================================
+// EXPRESS MIDDLEWARE
+// ========================================
+
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: true }))
 app.use(express.static(PUBLIC_PATH))
+
+// ========================================
+// HOME
+// ========================================
 
 app.get('/', (req, res) => {
     const indexFile = path.join(PUBLIC_PATH, 'index.html')
@@ -75,6 +103,10 @@ app.get('/', (req, res) => {
     res.sendFile(indexFile)
 })
 
+// ========================================
+// HEALTH
+// ========================================
+
 app.get('/health', (req, res) => {
     res.status(200).json({
         status: 'ok',
@@ -84,10 +116,18 @@ app.get('/health', (req, res) => {
     })
 })
 
+// ========================================
+// ATTACH MESSAGE HANDLERS
+// ========================================
+
 const attachedSockets = new WeakSet()
 
 function attachMessageHandlers(sock) {
-    if (!sock || attachedSockets.has(sock)) return
+    if (!sock) return
+
+    if (attachedSockets.has(sock)) {
+        return
+    }
 
     attachedSockets.add(sock)
 
@@ -99,7 +139,9 @@ function attachMessageHandlers(sock) {
                 if (!msg?.message) continue
 
                 const remoteJid = msg.key?.remoteJid
-                if (!remoteJid || remoteJid === 'status@broadcast') continue
+                if (!remoteJid) continue
+
+                if (remoteJid === 'status@broadcast') continue
 
                 if (typeof antiDelete === 'function') {
                     try {
@@ -137,6 +179,10 @@ function attachMessageHandlers(sock) {
     })
 }
 
+// ========================================
+// CREATE / PREPARE BOT
+// ========================================
+
 async function prepareBot(phone) {
     phone = normalizePhone(phone)
 
@@ -146,12 +192,15 @@ async function prepareBot(phone) {
 
     console.log(`🔌 Preparing NOX-SPARROW: ${phone}`)
 
-    const sock = await createSocket(phone, attachMessageHandlers)
-
+    const sock = await createSocket(phone)
     attachMessageHandlers(sock)
 
     return sock
 }
+
+// ========================================
+// PAIR ROUTE
+// ========================================
 
 app.get('/pair', async (req, res) => {
     let phone = normalizePhone(req.query.number)
@@ -163,6 +212,7 @@ app.get('/pair', async (req, res) => {
         })
     }
 
+    // Uganda convenience: 0700xxxxxx -> 256700xxxxxx
     if (phone.startsWith('0') && phone.length === 10) {
         phone = '256' + phone.slice(1)
     }
@@ -177,15 +227,50 @@ app.get('/pair', async (req, res) => {
     try {
         console.log(`📲 PAIR REQUEST: ${phone}`)
 
-        const result = await createPairingSocket(
-            phone,
-            attachMessageHandlers
-        )
+        // IMPORTANT:
+        // This creates a fresh socket when the previous pairing left
+        // incomplete credentials. Valid registered sessions are protected.
+        const sock = await createPairingSocket(phone)
+
+        // createPairingSocket waits for connecting/QR before this call.
+        console.log(`📲 REQUESTING PAIRING CODE: ${phone}`)
+
+        let code
+        let lastError
+
+        // Small retry protects against a transient 428 during the initial
+        // handshake. We never retry after the socket has already closed.
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                if (!sock.ws || sock.ws.readyState === 3) {
+                    throw new Error('WHATSAPP SOCKET CLOSED BEFORE PAIRING CODE REQUEST')
+                }
+
+                code = await sock.requestPairingCode(phone)
+                break
+            } catch (err) {
+                lastError = err
+
+                console.log(
+                    `⚠️ PAIR CODE ATTEMPT ${attempt} FAILED ${phone}: ${err.message}`
+                )
+
+                if (attempt < 2 && sock.ws && sock.ws.readyState !== 3) {
+                    await new Promise(resolve => setTimeout(resolve, 1200))
+                }
+            }
+        }
+
+        if (!code) {
+            throw lastError || new Error('PAIRING CODE WAS NOT GENERATED')
+        }
+
+        console.log(`✅ PAIR CODE GENERATED: ${phone}`)
 
         return res.json({
             status: true,
             number: phone,
-            code: result.code
+            code
         })
     } catch (err) {
         console.error(`❌ PAIR ERROR ${phone}:`, err)
@@ -196,6 +281,10 @@ app.get('/pair', async (req, res) => {
         })
     }
 })
+
+// ========================================
+// SESSION STATUS
+// ========================================
 
 app.get('/status', (req, res) => {
     const phone = normalizePhone(req.query.number)
@@ -222,6 +311,10 @@ app.get('/status', (req, res) => {
     })
 })
 
+// ========================================
+// GLOBAL ERROR PROTECTION
+// ========================================
+
 process.on('uncaughtException', (err) => {
     console.error('UNCAUGHT EXCEPTION:', err)
 })
@@ -229,6 +322,10 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
     console.error('UNHANDLED REJECTION:', reason)
 })
+
+// ========================================
+// START SERVER
+// ========================================
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`
