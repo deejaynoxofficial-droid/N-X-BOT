@@ -2,7 +2,13 @@ const fs = require('fs')
 const path = require('path')
 const settings = require('../settings')
 
-const logoPath = path.resolve(__dirname, '..', settings.botImage || './media/bot.jpg')
+const configuredLogo = settings.botImage || './media/bot.jpg'
+const logoCandidates = [
+    path.resolve(__dirname, '..', configuredLogo),
+    path.resolve(__dirname, '..', 'media/bot.jpg'),
+    path.resolve(__dirname, '..', 'assests/bot.jpg')
+]
+const logoPath = logoCandidates.find(p => fs.existsSync(p)) || logoCandidates[0]
 let logoBuffer = null
 try {
     if (fs.existsSync(logoPath)) logoBuffer = fs.readFileSync(logoPath)
@@ -67,27 +73,10 @@ function addBranding(content) {
     if (typeof out.text === 'string') out.text = decorateText(out.text)
     if (typeof out.caption === 'string') out.caption = decorateText(out.caption)
 
-    // Attach the real bot logo as WhatsApp rich-message thumbnail metadata.
-    // This keeps normal text/media responses intact while giving every command
-    // response consistent NOX SPARROW branding.
-    if (logoBuffer) {
-        const current = out.contextInfo || {}
-        if (!current.externalAdReply) {
-            out.contextInfo = {
-                ...current,
-                externalAdReply: {
-                    ...(current.externalAdReply || {}),
-                    title: settings.botName || 'NOX SPARROW BOT',
-                    body: `⚡ Powered by ${settings.ownerName || 'NOX STAR.B'}`,
-                    thumbnail: logoBuffer,
-                    sourceUrl: settings.channel || undefined,
-                    mediaType: 1,
-                    renderLargerThumbnail: true,
-                    showAdAttribution: false
-                }
-            }
-        }
-    }
+    // Keep command responses WhatsApp-safe. The real bot logo is sent as
+    // an actual image on the first response below; putting a large image
+    // Buffer inside externalAdReply can make Baileys reject the message.
+
 
     return out
 }
