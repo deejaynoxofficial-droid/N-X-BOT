@@ -2,227 +2,82 @@ const fs = require('fs')
 const path = require('path')
 
 const settings = require('../settings')
-
-// ========================================
-// SAFE DATABASE IMPORT
-// ========================================
+const ui = require('../utils/ui')
 
 let getUser = () => ({})
 let getGroup = () => ({})
 
 try {
-
-    const database =
-        require('../database/database')
-
-    getUser =
-        database.getUser ||
-        (() => ({}))
-
-    getGroup =
-        database.getGroup ||
-        (() => ({}))
-
-} catch {
-
-    console.log(
-        '⚠️ DATABASE NOT FOUND'
-    )
+    const database = require('../database/database')
+    getUser = database.getUser || getUser
+    getGroup = database.getGroup || getGroup
+} catch (err) {
+    console.log('⚠️ DATABASE NOT FOUND')
 }
-
-// ========================================
-// STORAGE
-// ========================================
 
 const commands = new Map()
-
-// ========================================
-// COMMANDS PATH
-// ========================================
-
-const commandsPath = path.join(
-    __dirname,
-    '../commands'
-)
-
-// ========================================
-// CREATE COMMANDS FOLDER
-// ========================================
-
-try {
-
-    if (!fs.existsSync(commandsPath)) {
-
-        fs.mkdirSync(
-            commandsPath,
-            {
-                recursive: true
-            }
-        )
-    }
-
-} catch (err) {
-
-    console.log(
-        '❌ COMMAND FOLDER ERROR:'
-    )
-
-    console.log(err)
-}
-
-// ========================================
-// LOAD COMMANDS
-// ========================================
+const commandsPath = path.join(__dirname, '../commands')
 
 function loadCommands() {
+    commands.clear()
 
-    try {
+    if (!fs.existsSync(commandsPath)) {
+        fs.mkdirSync(commandsPath, { recursive: true })
+    }
 
-        commands.clear()
+    const files = fs.readdirSync(commandsPath)
+        .filter(file => file.endsWith('.js'))
+        .sort()
 
-        const files = fs
-            .readdirSync(commandsPath)
-            .filter(file =>
-                file.endsWith('.js')
-            )
+    for (const file of files) {
+        try {
+            const filePath = path.join(commandsPath, file)
+            delete require.cache[require.resolve(filePath)]
+            const command = require(filePath)
 
-        for (const file of files) {
+            if (!command || typeof command !== 'object') continue
+            if (!command.name || typeof command.execute !== 'function') continue
 
-            try {
+            const name = String(command.name).toLowerCase()
+            commands.set(name, command)
 
-                const filePath =
-                    path.join(
-                        commandsPath,
-                        file
-                    )
-
-                delete require.cache[
-                    require.resolve(filePath)
-                ]
-
-                const command =
-                    require(filePath)
-
-                // ========================================
-                // VALIDATION
-                // ========================================
-
-                if (!command) continue
-
-                if (
-                    typeof command !==
-                    'object'
-                ) continue
-
-                if (
-                    !command.name
-                ) continue
-
-                if (
-                    typeof command.execute !==
-                    'function'
-                ) continue
-
-                const name =
-                    command.name.toLowerCase()
-
-                commands.set(
-                    name,
-                    command
-                )
-
-                // ========================================
-                // ALIASES
-                // ========================================
-
-                if (
-                    Array.isArray(
-                        command.aliases
-                    )
-                ) {
-
-                    for (const alias of command.aliases) {
-
-                        if (
-                            typeof alias ===
-                            'string'
-                        ) {
-
-                            commands.set(
-                                alias.toLowerCase(),
-                                command
-                            )
-                        }
+            if (Array.isArray(command.aliases)) {
+                for (const alias of command.aliases) {
+                    if (typeof alias === 'string' && alias.trim()) {
+                        commands.set(alias.toLowerCase(), command)
                     }
                 }
-
-                console.log(
-                    `✅ LOADED: ${name}`
-                )
-
-            } catch (err) {
-
-                console.log(
-                    `❌ FAILED: ${file}`
-                )
-
-                console.log(err)
             }
+
+            console.log(`✅ LOADED: ${name}`)
+        } catch (err) {
+            console.log(`❌ FAILED: ${file}`)
+            console.log(err.message || err)
         }
-
-        console.log(
-            `📦 TOTAL COMMANDS: ${commands.size}`
-        )
-
-    } catch (err) {
-
-        console.log(
-            '❌ LOAD COMMANDS ERROR'
-        )
-
-        console.log(err)
     }
-}
 
-// ========================================
-// INITIAL LOAD
-// ========================================
+    console.log(`📦 TOTAL COMMANDS: ${commands.size}`)
+}
 
 loadCommands()
 
-// ========================================
-// GET BODY
-// ========================================
-
-function unwrapMessage(message) {
-    let current = message || {}
-
+function unwrapMessage(message = {}) {
+    let current = message
     for (let i = 0; i < 5; i++) {
-        if (current?.ephemeralMessage?.message) {
-            current = current.ephemeralMessage.message
-            continue
-        }
-        if (current?.viewOnceMessage?.message) {
-            current = current.viewOnceMessage.message
-            continue
-        }
-        if (current?.viewOnceMessageV2?.message) {
-            current = current.viewOnceMessageV2.message
-            continue
-        }
-        if (current?.documentWithCaptionMessage?.message) {
-            current = current.documentWithCaptionMessage.message
-            continue
-        }
-        break
+        const next = current?.ephemeralMessage?.message ||
+            current?.viewOnceMessage?.message ||
+            current?.viewOnceMessageV2?.message ||
+            current?.documentWithCaptionMessage?.message
+        if (!next) break
+        current = next
     }
     return current || {}
 }
 
 function getBody(msg) {
     try {
-        const message = unwrapMessage(msg?.message)
-        return (
+        const message = unwrapMessage(msg?.message || {})
+        return String(
             message.conversation ||
             message.extendedTextMessage?.text ||
             message.imageMessage?.caption ||
@@ -232,250 +87,120 @@ function getBody(msg) {
             message.listResponseMessage?.singleSelectReply?.selectedRowId ||
             message.templateButtonReplyMessage?.selectedId ||
             ''
-        )
-    } catch {
+        ).trim()
+    } catch (_) {
         return ''
     }
 }
 
-// ========================================
-// HANDLE COMMAND
-// ========================================
+function normalizeSender(jid) {
+    if (!jid) return ''
+    const value = String(jid)
+    if (value.endsWith('@s.whatsapp.net')) return value.split(':')[0] + '@s.whatsapp.net'
+    if (value.endsWith('@lid')) return value
+    if (value.includes('@')) return value
+    return value.split(':')[0] + '@s.whatsapp.net'
+}
 
-async function handleCommand(
-    sock,
-    msg
-) {
+function isOwner(sender) {
+    const ownerNumbers = Array.isArray(settings.ownerNumbers) && settings.ownerNumbers.length
+        ? settings.ownerNumbers
+        : [settings.ownerNumber]
+    const cleanSender = normalizeSender(sender)
+    return ownerNumbers.some(number => normalizeSender(String(number).replace(/\D/g, '')) === cleanSender)
+}
+
+async function sendSystemMessage(sock, from, text, msg) {
+    try {
+        const branded = ui.createBrandedSocket(sock, 'system')
+        ui.resetCommandBranding(sock)
+        return await branded.sendMessage(from, { text }, { quoted: msg })
+    } catch (_) {}
+}
+
+async function executeCommand(commandName, sock, msg, args = []) {
+    const command = commands.get(String(commandName || '').toLowerCase())
+    if (!command) return false
+
+    const from = msg?.key?.remoteJid
+    if (!from) return false
+
+    const isGroup = from.endsWith('@g.us')
+    const rawSender = isGroup ? (msg.key?.participant || msg.key?.participantAlt || from) : from
+    const sender = normalizeSender(rawSender)
+
+    let userData = {}
+    let groupData = {}
+    try {
+        userData = getUser(sender) || {}
+        if (isGroup) groupData = getGroup(from) || {}
+    } catch (_) {}
+
+    if (command.owner === true && !isOwner(sender)) {
+        await sendSystemMessage(sock, from, '❌ Owner-only command.\n👑 This command is restricted to the bot owner.', msg)
+        return true
+    }
+
+    if (command.group === true && !isGroup) {
+        await sendSystemMessage(sock, from, '❌ Group-only command.\n👥 Use this command inside a WhatsApp group.', msg)
+        return true
+    }
+
+    const brandedSock = ui.createBrandedSocket(sock, String(command.name).toLowerCase())
+    ui.resetCommandBranding(sock)
 
     try {
+        await command.execute(brandedSock, msg, Array.isArray(args) ? args : [], {
+            from,
+            sender,
+            isGroup,
+            userData,
+            groupData,
+            prefix: settings.prefix || '.',
+            commandName: command.name,
+            ui
+        })
+        console.log(`✅ SUCCESS: ${command.name}`)
+    } catch (err) {
+        console.log(`❌ EXECUTE ERROR: ${command.name}`)
+        console.log(err)
+        await sendSystemMessage(sock, from, `❌ ${settings.errorEmoji || '❌'} Command failed.\n🛠️ ${err.message || 'Unknown error'}`, msg)
+    }
 
-        if (
-            !sock ||
-            !msg ||
-            !msg.message
-        ) return
+    return true
+}
 
-        const from =
-            msg.key?.remoteJid
+async function handleCommand(sock, msg) {
+    try {
+        if (!sock || !msg?.message) return
 
-        if (!from) return
+        const from = msg.key?.remoteJid
+        if (!from || from === 'status@broadcast') return
 
-        if (
-            from ===
-            'status@broadcast'
-        ) return
-
-        const body =
-            getBody(msg)
-
-        console.log(
-            `📨 MESSAGE RECEIVED | from=${from} | fromMe=${!!msg.key?.fromMe} | body=${body ? 'TEXT' : 'NON-TEXT'}`
-        )
-
+        const body = getBody(msg)
         if (!body) return
 
-        // ========================================
-        // PREFIX
-        // ========================================
+        const prefix = settings.prefix || '.'
+        if (!body.startsWith(prefix)) return
 
-        const prefix =
-            settings.prefix || '.'
-
-        if (
-            !body.startsWith(prefix)
-        ) return
-
-        // ========================================
-        // PARSE
-        // ========================================
-
-        const args =
-            body
-            .slice(prefix.length)
-            .trim()
-            .split(/\s+/)
-
-        const commandName =
-            args.shift()
-            ?.toLowerCase()
-
+        const parts = body.slice(prefix.length).trim().split(/\s+/)
+        const commandName = parts.shift()?.toLowerCase()
         if (!commandName) return
 
-        console.log(
-            `📥 ${commandName}`
-        )
-
-        // ========================================
-        // COMMAND
-        // ========================================
-
-        const command =
-            commands.get(commandName)
-
-        if (!command) {
-
-            console.log(
-                `❌ UNKNOWN: ${commandName}`
-            )
-
-            return
-        }
-
-        // ========================================
-        // GROUP
-        // ========================================
-
-        const isGroup =
-            from.endsWith('@g.us')
-
-        const sender =
-            isGroup
-                ? (
-                    msg.key?.participant ||
-                    ''
-                  )
-                : from
-
-        const normalizedSender =
-            sender.includes(':')
-                ? sender.split(':')[0] +
-                  '@s.whatsapp.net'
-                : sender
-
-        // ========================================
-        // DATABASE
-        // ========================================
-
-        let userData = {}
-        let groupData = {}
-
-        try {
-
-            userData =
-                getUser(
-                    normalizedSender
-                ) || {}
-
-            if (isGroup) {
-
-                groupData =
-                    getGroup(from) || {}
-            }
-
-        } catch {}
-
-        // ========================================
-        // OWNER ONLY
-        // ========================================
-
-        if (
-            command.owner === true &&
-            normalizedSender !==
-            `${settings.ownerNumber}@s.whatsapp.net`
-        ) {
-
-            return await sock.sendMessage(
-                from,
-                {
-                    text:
-                        '❌ Owner only command.'
-                },
-                {
-                    quoted: msg
-                }
-            )
-        }
-
-        // ========================================
-        // GROUP ONLY
-        // ========================================
-
-        if (
-            command.group === true &&
-            !isGroup
-        ) {
-
-            return await sock.sendMessage(
-                from,
-                {
-                    text:
-                        '❌ Group only command.'
-                },
-                {
-                    quoted: msg
-                }
-            )
-        }
-
-        // ========================================
-        // EXECUTE
-        // ========================================
-
-        try {
-
-            await command.execute(
-                sock,
-                msg,
-                args,
-                {
-                    from,
-                    sender:
-                        normalizedSender,
-                    isGroup,
-                    userData,
-                    groupData,
-                    prefix
-                }
-            )
-
-            console.log(
-                `✅ SUCCESS: ${commandName}`
-            )
-
-        } catch (cmdError) {
-
-            console.log(
-                `❌ EXECUTE ERROR: ${commandName}`
-            )
-
-            console.log(cmdError)
-
-            try {
-
-                await sock.sendMessage(
-                    from,
-                    {
-                        text:
-                            '❌ Command failed.'
-                    },
-                    {
-                        quoted: msg
-                    }
-                )
-
-            } catch {}
-        }
-
+        console.log(`📥 ${commandName}`)
+        await executeCommand(commandName, sock, msg, parts)
     } catch (err) {
-
-        console.log(
-            '❌ HANDLE COMMAND ERROR'
-        )
-
+        console.log('❌ HANDLE COMMAND ERROR')
         console.log(err)
     }
 }
 
-// ========================================
-// EXPORTS
-// ========================================
-
 module.exports = {
-
     handleCommand,
-
-    reloadCommands:
-        loadCommands,
-
-    commands
+    executeCommand,
+    reloadCommands: loadCommands,
+    commands,
+    getBody,
+    normalizeSender,
+    isOwner
 }
