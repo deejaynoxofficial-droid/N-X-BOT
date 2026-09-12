@@ -244,7 +244,7 @@ npm run dev
 
 <br><br>
 
-`FORK` → `CONNECT` → `ENVIRONMENT` → `DEPLOY`
+`FORK` → `CONNECT` → `DEPLOY` → `PAIR`
 
 </div>
 
@@ -282,108 +282,6 @@ Live pairing interface:
 │  06  Enter the pairing code          │
 │  07  Wait for connection             │
 └─────────────────────────────────────┘
-```
-
----
-
-## 📂 `PROJECT // STRUCTURE`
-
-```text
-N-X-BOT/
-│
-├── commands/              # Bot commands
-├── handler/               # Command/message handling
-│   └── commandHandler.js
-├── sockets/               # WhatsApp sockets
-│   └── socketManager.js
-├── public/                # Web interface
-├── database/              # Bot data
-├── sessions/              # WhatsApp auth sessions
-├── media/                 # Bot media
-├── temp/                  # Temporary files
-├── logs/                  # Runtime logs
-│
-├── index.js               # Main entry point
-├── settings.js            # Configuration
-├── package.json           # Dependencies
-├── .env.example           # Safe environment template
-└── README.md              # Documentation
-```
-
----
-
-## 🔑 `API // SAFE CONFIGURATION`
-
-### NeoXR
-
-```env
-NEOXR_API_BASE=https://api.neoxr.my.id
-API_KEY=YOUR_NEOXR_API_KEY
-```
-
-### API Ninjas
-
-```env
-API_NINJAS_KEY=YOUR_API_NINJAS_KEY
-```
-
-### Optional integrations
-
-```env
-OPENAI_KEY=YOUR_OPENAI_KEY
-GEMINI_KEY=YOUR_GEMINI_KEY
-```
-
-**Never replace these placeholders with real keys inside `README.md`.**
-
----
-
-## 🛡️ `SECURITY // PROTOCOL`
-
-```text
-[✓] Store secrets in environment variables
-[✓] Keep .env out of Git
-[✓] Keep sessions out of Git
-[✓] Rotate exposed credentials immediately
-[✓] Review deployment logs
-[✓] Keep dependencies updated
-
-[✗] Do not publish API keys
-[✗] Do not publish session files
-[✗] Do not paste credentials into README
-```
-
-Recommended `.gitignore`:
-
-```gitignore
-.env
-.env.*
-sessions/*
-!sessions/.gitkeep
-logs/*
-temp/*
-```
-
----
-
-## 🧑‍💻 `DEVELOPMENT // ADD COMMAND`
-
-Create a new file inside `commands/`:
-
-```js
-module.exports = {
-    name: "hello",
-    aliases: ["hi"],
-    category: "main",
-
-    async execute(sock, msg) {
-        const from = msg.key.remoteJid;
-
-        await sock.sendMessage(from, {
-            text: "👋 Hello from NOX SPARROW!"
-        });
-    }
-};
 ```
 
 ---
