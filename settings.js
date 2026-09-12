@@ -85,10 +85,17 @@ module.exports = {
     maxVideoDuration: 60,
     ffmpegPath: "ffmpeg",
 
+    // API CONFIGURATION
+    // Commands append /api/... themselves, so keep the base URL without /api.
+    APIs: {
+        neoxr: process.env.NEOXR_API_BASE || "https://api.neoxr.my.id"
+    },
+
     // API KEYS
     apiKey: process.env.API_KEY || "",
     openaiKey: process.env.OPENAI_KEY || "",
     geminiKey: process.env.GEMINI_KEY || "",
+    apiNinjasKey: process.env.API_NINJAS_KEY || "",
 
     // CHANNEL
     channel: "https://whatsapp.com/channel/0029VbCnWMi2ZjCgC3ISe73b",
