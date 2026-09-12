@@ -144,25 +144,25 @@ function categoryMenu(category) {
 
 async function send(sock, msg, text, state) {
     const from = msg?.key?.remoteJid
-    if (!from) return false
+    if (!from || !sock || typeof sock.sendMessage !== 'function') return false
+
     let sent
     try {
-        // Menu always uses the real logo as the actual WhatsApp image.
-        if (ui.logoBuffer) {
-            sent = await sock.sendMessage(from, { image: ui.logoBuffer, caption: text }, { quoted: msg })
-        } else {
-            sent = await sock.sendMessage(from, { text }, { quoted: msg })
-        }
-    } catch (err) {
-        console.log(`⚠️ MENU IMAGE SEND FAILED: ${err.message}`)
+        // Keep the menu itself text-only for maximum Baileys compatibility.
+        // Command responses can still use the branded UI layer.
         sent = await sock.sendMessage(from, { text }, { quoted: msg })
+    } catch (err) {
+        console.error(`❌ MENU SEND FAILED | ${err.message || err}`)
+        return false
     }
+
     remember(msg, { ...state, menuMessageId: sent?.key?.id || null })
     console.log(`✅ MENU SENT | chat=${from} | state=${state.level}${state.category ? ':' + state.category : ''}`)
     return true
 }
 
 async function execute(sock, msg) {
+    console.log(`📋 MENU COMMAND RECEIVED | chat=${msg?.key?.remoteJid || '-'} | sender=${msg?.key?.participant || msg?.key?.participantAlt || msg?.key?.remoteJid || '-'}`)
     return send(sock, msg, mainMenu(msg), { level: 'main', category: null })
 }
 
@@ -175,7 +175,10 @@ async function replyHandler(sock, msg) {
     const body = getBody(msg)
     if (!body) return false
     const state = stateFor(msg)
-    if (!state) return false
+    if (!state) {
+        if (/^[0-9]/.test(body)) console.log(`ℹ️ NUMBER REPLY IGNORED | no active menu | chat=${msg?.key?.remoteJid || '-'} | body=${body}`)
+        return false
+    }
 
     const quoted = quotedId(msg)
     if (quoted && state.menuMessageId && String(quoted) !== String(state.menuMessageId)) return false
