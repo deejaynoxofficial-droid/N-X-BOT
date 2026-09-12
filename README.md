@@ -203,18 +203,7 @@ cd N-X-BOT
 npm install
 ```
 
-### `03` — Configure
 
-Copy `.env.example` to `.env` and fill in your own credentials locally.
-
-```env
-PORT=3000
-NEOXR_API_BASE=https://api.neoxr.my.id
-API_KEY=YOUR_NEOXR_API_KEY
-API_NINJAS_KEY=YOUR_API_NINJAS_KEY
-OPENAI_KEY=
-GEMINI_KEY=
-```
 
 ### `04` — Launch
 
@@ -248,17 +237,6 @@ npm run dev
 
 </div>
 
-### Render environment variables
-
-Add your own secret values in **Render → Environment**:
-
-```text
-API_KEY            = <your private NeoXR key>
-NEOXR_API_BASE     = https://api.neoxr.my.id
-API_NINJAS_KEY     = <your private API Ninjas key>
-OPENAI_KEY         = <your private key if used>
-GEMINI_KEY         = <your private key if used>
-```
 
 The README deliberately uses placeholders only.
 
