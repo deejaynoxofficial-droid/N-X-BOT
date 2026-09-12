@@ -280,6 +280,23 @@ function attachMessageHandlers(sock) {
                     }
 
                     // ========================================
+                    // MENU COMMAND (FIRST-CLASS)
+                    // ========================================
+                    // Handle .menu before numbered replies and before the generic
+                    // command parser. This removes ambiguity around menu aliases.
+                    try {
+                        const menuBody = require('./commands/menu').getBody(msg)
+                        const menuPrefix = settings.prefix || '.'
+                        if (menuBody === `${menuPrefix}menu` || menuBody === `${menuPrefix}help` || menuBody === `${menuPrefix}allmenu`) {
+                            console.log(`📋 DIRECT MENU DETECTED | chat=${remoteJid}`)
+                            await require('./commands/menu').execute(sock, msg)
+                            continue
+                        }
+                    } catch (err) {
+                        console.error('DIRECT MENU ERROR:', err)
+                    }
+
+                    // ========================================
                     // NUMBERED MENU / CATEGORY REPLIES
                     // ========================================
 
