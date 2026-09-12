@@ -91,13 +91,14 @@ module.exports = {
         neoxr: process.env.NEOXR_API_BASE || "https://api.neoxr.my.id"
     },
 
-    // API KEYS
     apiKey: process.env.API_KEY || "",
     openaiKey: process.env.OPENAI_KEY || "",
     geminiKey: process.env.GEMINI_KEY || "",
     apiNinjasKey: process.env.API_NINJAS_KEY || "",
 
-    // CHANNEL
+    // PAIRING / CHANNEL
+    pairingCommand: true,
+    pairingWelcome: true,
     channel: "https://whatsapp.com/channel/0029VbCnWMi2ZjCgC3ISe73b",
 
     // TIMEZONE

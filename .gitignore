@@ -4,6 +4,5 @@ node_modules/
 !.env.example
 sessions/*
 !sessions/.gitkeep
-temp/*
 logs/*
-*.log
+temp/*

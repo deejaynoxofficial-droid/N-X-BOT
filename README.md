@@ -1,341 +1,206 @@
 <div align="center">
 
-<img src="assets/nox-sparrow-neon-banner.png" alt="NOX SPARROW neon banner" width="100%">
+<img src="https://i.ibb.co/7ds1NcBG/RD32353637343837353231353240732e77686174736170702e6e6574-404220.jpg" width="100%"/>
+
+# 👑 NOX SPARROW MD 👑
+
+### Powerful WhatsApp Multi Device Bot
+
+<p align="center">
+Built With Baileys • Designed For Speed • Enhanced For Stability
+</p>
+
+<p align="center">
+Powered By NOX STAR TECH
+</p>
 
 <br>
 
-<img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=800&size=24&duration=2600&pause=800&color=8B5CF6&center=true&vCenter=true&width=780&lines=NOX+SPARROW+BOT;MODERN+WHATSAPP+MULTI-DEVICE+BOT;FAST+%E2%80%A2+SECURE+%E2%80%A2+POWERFUL;POWERED+BY+NOX+STAR.B" alt="Animated NOX SPARROW header">
+<p align="center">
+<img src="https://img.shields.io/github/stars/YOUR_USERNAME/nox-sparrow-md?style=for-the-badge&color=purple">
+<img src="https://img.shields.io/github/forks/YOUR_USERNAME/nox-sparrow-md?style=for-the-badge&color=blue">
+<img src="https://img.shields.io/github/repo-size/YOUR_USERNAME/nox-sparrow-md?style=for-the-badge&color=orange">
+<img src="https://img.shields.io/github/license/YOUR_USERNAME/nox-sparrow-md?style=for-the-badge&color=green">
+</p>
 
-<br><br>
-
-<a href="https://noxsparrowbot.onrender.com">
-<img src="https://img.shields.io/website?url=https%3A%2F%2Fnoxsparrowbot.onrender.com&style=for-the-badge&label=LIVE%20STATUS&up_message=ONLINE%20%E2%9C%93&down_message=OFFLINE%20%E2%9C%97" alt="Live bot status">
-</a>
-<a href="https://github.com/deejaynoxofficial-droid/N-X-BOT">
-<img src="https://img.shields.io/github/stars/deejaynoxofficial-droid/N-X-BOT?style=for-the-badge&logo=github&label=STARS" alt="GitHub stars">
-</a>
-<a href="https://github.com/deejaynoxofficial-droid/N-X-BOT">
-<img src="https://img.shields.io/github/license/deejaynoxofficial-droid/N-X-BOT?style=for-the-badge&label=LICENSE" alt="License">
-</a>
-
-<br><br>
-
-<a href="https://render.com/deploy?repo=https://github.com/deejaynoxofficial-droid/N-X-BOT">
-<img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Render">
-</a>
+<p align="center">
+<img src="https://img.shields.io/badge/WHATSAPP-MULTIDEVICE-25D366?style=for-the-badge">
+<img src="https://img.shields.io/badge/POWERED%20BY-NODE.JS-339933?style=for-the-badge">
+<img src="https://img.shields.io/badge/BAILEYS-LATEST-purple?style=for-the-badge">
+</p>
 
 </div>
 
 ---
 
-# 🦅 `NOX SPARROW // SYSTEM ONLINE`
+# ✨ NOX-SPARROW INSIGHTS
 
-> **NOX SPARROW BOT** is a modern, modular WhatsApp Multi-Device bot built with **Node.js** and **Baileys** — engineered for speed, stability, automation and expansion.
-
-```text
-╔══════════════════════════════════════════════════════════╗
-║                 ⚡ NOX SPARROW BOT ⚡                    ║
-║                                                          ║
-║   FAST       SECURE       MULTI-USER       MODULAR       ║
-║   AI         TOOLS        DOWNLOADS        GROUPS        ║
-║   WEB        APIs         AUTOMATION       FUN            ║
-╚══════════════════════════════════════════════════════════╝
-```
-
----
-
-## ⚡ `FEATURES // NEON CORE`
-
-<table>
-<tr>
-<td align="center" width="25%">
-
-### 🔥
-**67+ COMMANDS**
-
-Modular commands, aliases and categories.
-
-</td>
-<td align="center" width="25%">
-
-### 👥
-**MULTI-USER**
-
-Support multiple WhatsApp sessions.
-
-</td>
-<td align="center" width="25%">
-
-### 📡
-**WEB PAIRING**
-
-Pair accounts from the browser.
-
-</td>
-<td align="center" width="25%">
-
-### 🤖
-**AI**
-
-AI-powered commands and integrations.
-
-</td>
-</tr>
-<tr>
-<td align="center">
-
-### 📥
-**DOWNLOAD**
-
-Media downloading and processing.
-
-</td>
-<td align="center">
-
-### 👑
-**GROUP**
-
-Administration and moderation tools.
-
-</td>
-<td align="center">
-
-### 🔄
-**RECONNECT**
-
-Session restore and connection recovery.
-
-</td>
-<td align="center">
-
-### 🧩
-**MODULAR**
-
-Easy command expansion.
-
-</td>
-</tr>
-</table>
+| Feature | Status |
+|----------|---------|
+| Multi Device | ✅ |
+| AI Commands | ✅ |
+| Downloader Commands | ✅ |
+| Group Management | ✅ |
+| Anti Delete | ✅ |
+| Anti Link | ✅ |
+| Anti Badword | ✅ |
+| Auto Status View | ✅ |
+| Stable Connection | ✅ |
+| Modern UI | ✅ |
 
 ---
 
-## 🟣 `COMMANDS // MATRIX`
+# 🚀 DEPLOYMENT STEPS
 
-| Category | Purpose |
-|---|---|
-| 🏠 **Main** | Core bot commands and information |
-| 👥 **Group** | Group management and moderation |
-| 🎮 **Fun** | Games, memes and entertainment |
-| 🤖 **AI** | AI and intelligent utilities |
-| 🛠️ **Tools** | Useful utilities |
-| 📥 **Download** | Media and content tools |
-| 👑 **Owner** | Owner and administration commands |
+### 🍴 First Fork The Repository
 
-```text
-┌─[ NOX-SPARROW ]─────────────────────────────┐
-│ .menu                                       │
-│ .help                                       │
-│ .ping                                       │
-│ .ai <message>                               │
-│ .play <song>                                │
-│ .song <artist - title>                      │
-│ .tiktok <url>                               │
-│ .instagram <url>                            │
-│ .weather <city>                             │
-│ .translate <text>                           │
-└────────────────────────────────────────────┘
-```
-
-> The installed files inside `commands/` determine the exact command list.
+<p align="left">
+<a href="https://github.com/YOUR_USERNAME/nox-sparrow-md/fork">
+<img title="FORK REPOSITORY" src="https://img.shields.io/badge/FORK-REPOSITORY-purple?style=for-the-badge&logo=github">
+</a>
+</p>
 
 ---
 
-## 🧬 `ARCHITECTURE // CORE`
+# 🔑 PAIRING DASHBOARD
 
-```text
-                         ┌─────────────────┐
-                         │    WHATSAPP     │
-                         │      USER       │
-                         └────────┬────────┘
-                                  │
-                                  ▼
-                         ┌─────────────────┐
-                         │    BAILEYS MD   │
-                         └────────┬────────┘
-                                  │
-                                  ▼
-                     ┌────────────────────────┐
-                     │     SOCKET MANAGER     │
-                     └────────────┬───────────┘
-                                  │
-                                  ▼
-                     ┌────────────────────────┐
-                     │     COMMAND HANDLER    │
-                     └────────────┬───────────┘
-                                  │
-               ┌──────────────────┼──────────────────┐
-               ▼                  ▼                  ▼
-          ┌──────────┐       ┌──────────┐       ┌──────────┐
-          │    AI    │       │  GROUPS  │       │ DOWNLOAD │
-          └────┬─────┘       └────┬─────┘       └────┬─────┘
-               │                  │                  │
-               └──────────────────┼──────────────────┘
-                                  ▼
-                       ┌────────────────────┐
-                       │    EXTERNAL APIs   │
-                       └────────────────────┘
-```
+### Generate Your Session ID
+
+<p align="left">
+<a href="https://your-pair-site.com">
+<img title="PAIR CODE" src="https://img.shields.io/badge/PAIR-CODE%20GENERATOR-blueviolet?style=for-the-badge">
+</a>
+</p>
 
 ---
 
-## 🚀 `QUICK START // BOOT SEQUENCE`
+# 🌐 DEPLOYMENT SITES
 
-### `01` — Clone
+<p align="center">
+
+<a href="https://render.com">
+<img src="https://img.shields.io/badge/RENDER-Deploy-black?style=for-the-badge&logo=render">
+</a>
+
+<a href="https://railway.app">
+<img src="https://img.shields.io/badge/RAILWAY-Deploy-purple?style=for-the-badge&logo=railway">
+</a>
+
+<a href="https://heroku.com">
+<img src="https://img.shields.io/badge/HEROKU-Deploy-7952B3?style=for-the-badge&logo=heroku">
+</a>
+
+<a href="https://replit.com">
+<img src="https://img.shields.io/badge/REPLIT-Deploy-orange?style=for-the-badge&logo=replit">
+</a>
+
+</p>
+
+---
+
+# ⚡ INSTALLATION
+
+## Clone Repository
 
 ```bash
-git clone https://github.com/deejaynoxofficial-droid/N-X-BOT.git
-cd N-X-BOT
+git clone https://github.com/YOUR_USERNAME/nox-sparrow-md
+cd nox-sparrow-md
 ```
 
-### `02` — Install
+---
+
+# 📦 INSTALL DEPENDENCIES
 
 ```bash
 npm install
 ```
 
+---
 
-
-### `04` — Launch
+# ▶️ START BOT
 
 ```bash
 npm start
 ```
 
-Development:
+---
+
+# 🔑 ENVIRONMENT VARIABLES
+
+Create `.env` file and add:
+
+```env
+OWNER_NAME=NOX SPARROW
+OWNER_NUMBER=256700000000
+BOT_NAME=NOX-SPARROW-MD
+PREFIX=.
+SESSION_ID=PASTE_YOUR_SESSION_ID
+```
+
+---
+
+# 📂 PROJECT STRUCTURE
 
 ```bash
-npm run dev
+📦 NOX-SPARROW-MD
+ ┣ 📂 commands
+ ┣ 📂 events
+ ┣ 📂 lib
+ ┣ 📂 database
+ ┣ 📂 session
+ ┣ 📜 index.js
+ ┣ 📜 settings.js
+ ┣ 📜 package.json
+ ┗ 📜 README.md
 ```
-
-> 🔒 **No real secrets are included anywhere in this README.**
 
 ---
 
-## ☁️ `DEPLOYMENT // RENDER`
+# 🛠 MAIN TECHNOLOGIES
+
+- Node.js
+- Baileys
+- Express
+- JavaScript
+- Multi Device WhatsApp API
+
+---
+
+# 👨‍💻 DEVELOPER
 
 <div align="center">
 
-### ⚡ ONE-CLICK DEPLOY
+## NOX SPARROW
 
-<a href="https://render.com/deploy?repo=https://github.com/deejaynoxofficial-droid/N-X-BOT">
-<img src="https://render.com/images/deploy-to-render-button.svg" alt="Deploy to Render">
+<a href="https://github.com/YOUR_USERNAME">
+<img src="https://img.shields.io/badge/GITHUB-NOX%20SPARROW-black?style=for-the-badge&logo=github">
 </a>
-
-<br><br>
-
-`FORK` → `CONNECT` → `DEPLOY` → `PAIR`
-
-</div>
-
-
-The README deliberately uses placeholders only.
-
----
-
-## 📱 `PAIRING // WEB`
-
-Live pairing interface:
-
-**https://noxsparrowbot.onrender.com**
-
-```text
-┌─────────────────────────────────────┐
-│       NOX SPARROW // PAIRING        │
-├─────────────────────────────────────┤
-│  01  Open the web pairing page      │
-│  02  Enter WhatsApp number          │
-│  03  Request pairing code            │
-│  04  Open WhatsApp → Linked Devices │
-│  05  Link a Device                   │
-│  06  Enter the pairing code          │
-│  07  Wait for connection             │
-└─────────────────────────────────────┘
-```
-
----
-
-## 🌌 `ROADMAP // FUTURE`
-
-```text
-[x] WhatsApp Multi-Device
-[x] Pairing-code login
-[x] Multi-user sessions
-[x] Modular commands
-[x] Web pairing
-[x] API integrations
-[x] Group utilities
-[x] Download tools
-[x] AI commands
-
-[ ] Advanced dashboard
-[ ] More AI providers
-[ ] Plugin ecosystem
-[ ] Advanced automation
-[ ] More media tools
-```
-
----
-
-## 📡 `LIVE // STATUS`
-
-<div align="center">
-
-<a href="https://noxsparrowbot.onrender.com">
-<img src="https://img.shields.io/website?url=https%3A%2F%2Fnoxsparrowbot.onrender.com&style=for-the-badge&label=NOX%20SPARROW&up_message=ONLINE%20%E2%9C%93&down_message=OFFLINE%20%E2%9C%97" alt="NOX SPARROW live status">
-</a>
-
-<br><br>
-
-`BOT` **NOX SPARROW**  
-`MODE` **MULTI-USER**  
-`HOST` **RENDER**  
-`WEB` **PAIRING ENABLED**
 
 </div>
 
 ---
 
-## ⭐ `SUPPORT // COMMUNITY`
+# ⭐ SUPPORT
 
-```text
-⭐ STAR       → Support the project
-🍴 FORK       → Create your own version
-🐛 ISSUES     → Report bugs
-💡 IDEAS      → Suggest improvements
-🛠️ CODE       → Contribute
-📢 SHARE      → Spread NOX SPARROW
-```
+If you like this project:
+
+- 🌟 Star The Repository
+- 🍴 Fork The Project
+- 📢 Share With Friends
+
+---
+
+# ⚠️ DISCLAIMER
+
+This bot is made for educational purposes only.  
+Misuse may result in WhatsApp restrictions or bans.
 
 ---
 
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=800&size=21&duration=2400&pause=700&color=25D366&center=true&vCenter=true&width=650&lines=STAY+FAST.;STAY+SECURE.;STAY+NOX.;BUILDING+A+SMARTER+TOMORROW." alt="Animated footer">
+# 💜 NOX SPARROW MD 💜
 
-<br><br>
-
-# ⚡ `NOX SPARROW BOT`
-
-**Made with ❤️ by NOX STAR.B**
-
-`© POWERED BY NOX STAR.B`
-
-<br>
-
-<a href="https://github.com/deejaynoxofficial-droid/N-X-BOT">GitHub</a>
-&nbsp; • &nbsp;
-<a href="https://noxsparrowbot.onrender.com">Web Pairing</a>
-&nbsp; • &nbsp;
-<a href="https://render.com/deploy?repo=https://github.com/deejaynoxofficial-droid/N-X-BOT">Deploy to Render</a>
+### Powered By NOX STAR TECH
 
 </div>
