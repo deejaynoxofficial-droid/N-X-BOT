@@ -30,7 +30,7 @@ module.exports = {
                 typeof settings.ownerNumber ===
                     'string'
                     ? settings.ownerNumber
-                    : '256745720308'
+                    : '256700000000'
 
             const ownerName =
                 typeof settings.ownerName ===
@@ -124,7 +124,7 @@ module.exports = {
 ┃
 ┃ 💬 Contact Owner
 ┃ for support or help.
-┃ +256745720308
+┃ +256748752152
 ╰━━━━━━━━━━━━━━━━━━⬣`
 
             await sock.sendMessage(from, {

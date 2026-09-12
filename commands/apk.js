@@ -120,18 +120,6 @@ module.exports = {
                 )
             }
 
-            if (!settings.apiNinjasKey) {
-                return await sock.sendMessage(from, {
-                    text:
-`╭━━〔 ❌ API KEY MISSING 〕━━⬣
-┃
-┃ APK search requires API_NINJAS_KEY.
-┃ Add it in Render Environment Variables.
-┃
-╰━━━━━━━━━━━━━━━━━━⬣`
-                })
-            }
-
             await sock.sendMessage(from, {
                 text:
 `╭━━〔 🔎 SEARCHING APK 〕━━⬣
@@ -141,6 +129,18 @@ module.exports = {
 ┃
 ╰━━━━━━━━━━━━━━━━━━⬣`
             })
+
+            if (!settings.apiNinjasKey) {
+                return await sock.sendMessage(from, {
+                    text:
+`╭━━〔 🔐 APK API 〕━━╮
+┃
+┃ API Ninjas key is not configured.
+┃ Add API_NINJAS_KEY in Render.
+┃
+╰━━━━━━━━━━━━━━━━━━╯`
+                })
+            }
 
             let response = null
 
@@ -158,15 +158,9 @@ module.exports = {
                                     status < 500,
 
                             headers: {
-                                Accept:
-                                    'application/json',
-
-                                'User-Agent':
-                                    'Mozilla/5.0',
-
-                                ...(settings.apiNinjasKey
-                                    ? { 'X-Api-Key': settings.apiNinjasKey }
-                                    : {})
+                                Accept: 'application/json',
+                                'User-Agent': 'Mozilla/5.0',
+                                'X-Api-Key': settings.apiNinjasKey
                             }
                         }
                     )
