@@ -119,7 +119,8 @@ async function sendSystemMessage(sock, from, text, msg) {
 }
 
 async function executeCommand(commandName, sock, msg, args = []) {
-    const command = commands.get(String(commandName || '').toLowerCase())
+    const normalizedCommandName = String(commandName || '').toLowerCase()
+    const command = commands.get(normalizedCommandName)
     if (!command) return false
 
     const from = msg?.key?.remoteJid
@@ -146,11 +147,15 @@ async function executeCommand(commandName, sock, msg, args = []) {
         return true
     }
 
-    const brandedSock = ui.createBrandedSocket(sock, String(command.name).toLowerCase())
+    // Menu is a stateful interaction command. Execute it directly so its
+    // message/session bookkeeping is never affected by response decoration.
+    const executionSock = normalizedCommandName === 'menu' || normalizedCommandName === 'help' || normalizedCommandName === 'allmenu'
+        ? sock
+        : ui.createBrandedSocket(sock, String(command.name).toLowerCase())
     ui.resetCommandBranding(sock)
 
     try {
-        await command.execute(brandedSock, msg, Array.isArray(args) ? args : [], {
+        await command.execute(executionSock, msg, Array.isArray(args) ? args : [], {
             from,
             sender,
             isGroup,
