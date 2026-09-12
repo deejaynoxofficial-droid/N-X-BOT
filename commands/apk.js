@@ -1,4 +1,5 @@
 const axios = require('axios')
+const settings = require('../settings')
 
 module.exports = {
     name: 'apk',
@@ -119,6 +120,18 @@ module.exports = {
                 )
             }
 
+            if (!settings.apiNinjasKey) {
+                return await sock.sendMessage(from, {
+                    text:
+`╭━━〔 ❌ API KEY MISSING 〕━━⬣
+┃
+┃ APK search requires API_NINJAS_KEY.
+┃ Add it in Render Environment Variables.
+┃
+╰━━━━━━━━━━━━━━━━━━⬣`
+                })
+            }
+
             await sock.sendMessage(from, {
                 text:
 `╭━━〔 🔎 SEARCHING APK 〕━━⬣
@@ -149,7 +162,11 @@ module.exports = {
                                     'application/json',
 
                                 'User-Agent':
-                                    'Mozilla/5.0'
+                                    'Mozilla/5.0',
+
+                                ...(settings.apiNinjasKey
+                                    ? { 'X-Api-Key': settings.apiNinjasKey }
+                                    : {})
                             }
                         }
                     )
